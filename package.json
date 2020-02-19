@@ -1,0 +1,21 @@
+{
+  "name": "roll-a-d6",
+  "version": "0.1.0",
+  "description": "Sophisticated dice rolling library - tokenizer, parser, validator, and evaluator",
+  "main": "index.js",
+  "keywords": ["dice", "D&D"],
+  "author": "Corey T Kump <Corey.Kump@gmail.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "babel": "^6.23.0",
+    "babel-jest": "^25.1.0"
+  },
+  "devDependencies": {
+    "@babel/plugin-transform-modules-commonjs": "^7.8.3",
+    "jest": "^25.1.0"
+  },
+  "scripts": {
+    "test": "jest"
+  }
+}
