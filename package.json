@@ -9,7 +9,6 @@
   ],
   "author": "Corey T Kump <Corey.Kump@gmail.com>",
   "license": "UNLICENSED",
-  "private": true,
   "dependencies": {},
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.8.3",
