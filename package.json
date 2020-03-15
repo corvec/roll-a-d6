@@ -2,7 +2,8 @@
   "name": "roll-a-d6",
   "version": "0.2.2",
   "description": "Sophisticated dice rolling library - tokenizer, parser, validator, and evaluator",
-  "main": "lib/index.js",
+  "main": "./lib/index.js",
+  "types": "./lib/roll-a-d6.d.ts",
   "keywords": [
     "dice",
     "D&D"
@@ -19,7 +20,7 @@
     "eslint-plugin-import": "^2.20.1",
     "eslint-plugin-jsdoc": "^22.0.0",
     "jest": "^25.1.0",
-    "jsdoc": "^3.6.3",
+    "jsdoc": "~3.6.3",
     "npm-watch": "^0.6.0",
     "tsd-jsdoc": "^2.4.0"
   },
@@ -28,8 +29,8 @@
     "test": "lib/**/*.js"
   },
   "scripts": {
-    "build-docs": "jsdoc -r lib/ -d jsdoc",
-    "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist",
+    "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json",
+    "build-types": "jsdoc lib/evaluateFormula.js -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json",
     "lint": "eslint lib",
     "test": "jest",
     "watch-lint": "npm-watch lint",
