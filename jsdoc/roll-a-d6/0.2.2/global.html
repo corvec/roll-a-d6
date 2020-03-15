@@ -2507,7 +2507,7 @@ getMacrosFromCollection({ 'roll': '1d20+bonus,bonus=10'})</code></pre>
     
 
     
-    <h4 class="name" id="getNewVariablesReduceHelper"><span class="type-signature"></span>getNewVariablesReduceHelper<span class="signature">(variables)</span><span class="type-signature"> &rarr; {<a href="global.html#reduceHelper">reduceHelper</a>}</span></h4>
+    <h4 class="name" id="getNewVariablesReduceHelper"><span class="type-signature"></span>getNewVariablesReduceHelper<span class="signature">(variables)</span><span class="type-signature"> &rarr; {function}</span></h4>
     
 
     
@@ -2558,7 +2558,7 @@ any variables not already listed.
             <td class="type">
             
                 
-<span class="param-type">Array.&lt;string></span>
+<span class="param-type">object.&lt;string, string></span>
 
 
             
@@ -2609,7 +2609,7 @@ any variables not already listed.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html">formulaParser/getUnassignedVariablesAndUsedMacros.js</a>, <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html#line18">line 18</a>
+        <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html">formulaParser/getUnassignedVariablesAndUsedMacros.js</a>, <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html#line11">line 11</a>
     </li></ul></dd>
     
 
@@ -2645,7 +2645,7 @@ any variables not already listed.
     </dt>
     <dd>
         
-<span class="param-type"><a href="global.html#reduceHelper">reduceHelper</a></span>
+<span class="param-type">function</span>
 
 
     </dd>
@@ -3329,7 +3329,7 @@ getPropertyByPath({a: {b: [[],[5]]}}, ['a',b',1,0])</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line79">line 79</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line119">line 119</a>
     </li></ul></dd>
     
 
@@ -3580,7 +3580,7 @@ getTargetCollection('ac@Defender')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html">formulaParser/getUnassignedVariablesAndUsedMacros.js</a>, <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html#line74">line 74</a>
+        <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html">formulaParser/getUnassignedVariablesAndUsedMacros.js</a>, <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html#line67">line 67</a>
     </li></ul></dd>
     
 
@@ -3617,6 +3617,308 @@ getTargetCollection('ac@Defender')</code></pre>
     <dd>
         
 <span class="param-type"><a href="global.html#UnassignedVariablesAndUsedMacros">UnassignedVariablesAndUsedMacros</a></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="isConditional"><span class="type-signature"></span>isConditional<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line32">line 32</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="isExpansionOperator"><span class="type-signature"></span>isExpansionOperator<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line44">line 44</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
 
 
     </dd>
@@ -3913,7 +4215,7 @@ getTargetCollection('ac@Defender')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line46">line 46</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line86">line 86</a>
     </li></ul></dd>
     
 
@@ -4145,6 +4447,308 @@ getTargetCollection('ac@Defender')</code></pre>
     
 
     
+    <h4 class="name" id="isNumber"><span class="type-signature"></span>isNumber<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line76">line 76</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="isOperator"><span class="type-signature"></span>isOperator<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line38">line 38</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
     <h4 class="name" id="isRoll"><span class="type-signature"></span>isRoll<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
     
 
@@ -4246,7 +4850,309 @@ getTargetCollection('ac@Defender')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line39">line 39</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line79">line 79</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="isSideEffectOperator"><span class="type-signature"></span>isSideEffectOperator<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line50">line 50</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="isSideEffectVariable"><span class="type-signature"></span>isSideEffectVariable<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line69">line 69</a>
     </li></ul></dd>
     
 
@@ -4401,7 +5307,7 @@ getTargetCollection('ac@Defender')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line62">line 62</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line102">line 102</a>
     </li></ul></dd>
     
 
@@ -4556,7 +5462,309 @@ getTargetCollection('ac@Defender')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line54">line 54</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line94">line 94</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="isVariable"><span class="type-signature"></span>isVariable<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line57">line 57</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="isVariableInstance"><span class="type-signature"></span>isVariableInstance<span class="signature">(token)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line63">line 63</a>
     </li></ul></dd>
     
 
@@ -5443,180 +6651,6 @@ In the response, the assignments will reference the clauses by index.
     
 
     
-    <h4 class="name" id="reduceHelper"><span class="type-signature"></span>reduceHelper<span class="signature">(accum, expressions)</span><span class="type-signature"> &rarr; {Array.&lt;string>}</span></h4>
-    
-
-    
-
-
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>accum</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Array.&lt;string></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>expressions</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Array.&lt;<a href="global.html#RPNTokenList">RPNTokenList</a>></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html">formulaParser/getUnassignedVariablesAndUsedMacros.js</a>, <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html#line4">line 4</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Array.&lt;string></span>
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
-
-        
-            
-
-    
-
-    
     <h4 class="name" id="rollAD"><span class="type-signature"></span>rollAD<span class="signature">(sides, evaluationMetadata)</span><span class="type-signature"> &rarr; {number}</span></h4>
     
 
@@ -6075,7 +7109,7 @@ Otherwise, generate the next roll and save it into rolls.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line114">line 114</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line154">line 154</a>
     </li></ul></dd>
     
 
@@ -6236,7 +7270,7 @@ splitTokenList(['a', ',', 'c'])</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line93">line 93</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line133">line 133</a>
     </li></ul></dd>
     
 
@@ -6397,7 +7431,7 @@ stripPrefix('^ac')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line102">line 102</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line142">line 142</a>
     </li></ul></dd>
     
 
@@ -6559,7 +7593,7 @@ Each token should represent either a value or an operator.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line144">line 144</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line184">line 184</a>
     </li></ul></dd>
     
 
@@ -7555,7 +8589,7 @@ validateParentheses('()')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line72">line 72</a>
+        <a href="formulaTokenizer.js.html">formulaTokenizer.js</a>, <a href="formulaTokenizer.js.html#line112">line 112</a>
     </li></ul></dd>
     
 
@@ -8957,7 +9991,7 @@ validateParentheses('()')</code></pre>
             <td class="type">
             
                 
-<span class="param-type">EvaluationMetadata.rolls</span>
+<span class="param-type"><a href="global.html#RollLog">RollLog</a></span>
 
 
             
@@ -9761,7 +10795,7 @@ validateParentheses('()')</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html">formulaParser/getUnassignedVariablesAndUsedMacros.js</a>, <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html#line58">line 58</a>
+        <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html">formulaParser/getUnassignedVariablesAndUsedMacros.js</a>, <a href="formulaParser_getUnassignedVariablesAndUsedMacros.js.html#line51">line 51</a>
     </li></ul></dd>
     
 
@@ -9791,13 +10825,13 @@ validateParentheses('()')</code></pre>
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#buildResultRange">buildResultRange</a></li><li><a href="global.html#clauseHasMislocatedAssignmentOperator">clauseHasMislocatedAssignmentOperator</a></li><li><a href="global.html#convertFormulaToRoll">convertFormulaToRoll</a></li><li><a href="global.html#convertToRPN">convertToRPN</a></li><li><a href="global.html#evaluate">evaluate</a></li><li><a href="global.html#evaluateExpression">evaluateExpression</a></li><li><a href="global.html#evaluateFormula">evaluateFormula</a></li><li><a href="global.html#getAllRolls">getAllRolls</a></li><li><a href="global.html#getInitialRollIndex">getInitialRollIndex</a></li><li><a href="global.html#getMacroIndex">getMacroIndex</a></li><li><a href="global.html#getMacroName">getMacroName</a></li><li><a href="global.html#getMacrosFromCollection">getMacrosFromCollection</a></li><li><a href="global.html#getNewVariablesReduceHelper">getNewVariablesReduceHelper</a></li><li><a href="global.html#getPropertyByPath">getPropertyByPath</a></li><li><a href="global.html#getRollMetadata">getRollMetadata</a></li><li><a href="global.html#getRollType">getRollType</a></li><li><a href="global.html#getTargetCollection">getTargetCollection</a></li><li><a href="global.html#getUnassignedVariablesAndUsedMacros">getUnassignedVariablesAndUsedMacros</a></li><li><a href="global.html#isGlobalMacroInstance">isGlobalMacroInstance</a></li><li><a href="global.html#isGrouping">isGrouping</a></li><li><a href="global.html#isMacroInstance">isMacroInstance</a></li><li><a href="global.html#isRoll">isRoll</a></li><li><a href="global.html#isValidToken">isValidToken</a></li><li><a href="global.html#isValue">isValue</a></li><li><a href="global.html#objectMakerReduceHelper">objectMakerReduceHelper</a></li><li><a href="global.html#op1Precedes">op1Precedes</a></li><li><a href="global.html#operatorOrder">operatorOrder</a></li><li><a href="global.html#parseAssignments">parseAssignments</a></li><li><a href="global.html#parseTokens">parseTokens</a></li><li><a href="global.html#peek">peek</a></li><li><a href="global.html#reduceHelper">reduceHelper</a></li><li><a href="global.html#rollAD">rollAD</a></li><li><a href="global.html#rollFormula">rollFormula</a></li><li><a href="global.html#splitTokenList">splitTokenList</a></li><li><a href="global.html#stripPrefix">stripPrefix</a></li><li><a href="global.html#stripSuffix">stripSuffix</a></li><li><a href="global.html#tokenize">tokenize</a></li><li><a href="global.html#validateAlternatingTokenType">validateAlternatingTokenType</a></li><li><a href="global.html#validateBrackets">validateBrackets</a></li><li><a href="global.html#validateClause">validateClause</a></li><li><a href="global.html#validateFormula">validateFormula</a></li><li><a href="global.html#validateParentheses">validateParentheses</a></li><li><a href="global.html#variableTargetsCollection">variableTargetsCollection</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#buildResultRange">buildResultRange</a></li><li><a href="global.html#clauseHasMislocatedAssignmentOperator">clauseHasMislocatedAssignmentOperator</a></li><li><a href="global.html#convertFormulaToRoll">convertFormulaToRoll</a></li><li><a href="global.html#convertToRPN">convertToRPN</a></li><li><a href="global.html#evaluate">evaluate</a></li><li><a href="global.html#evaluateExpression">evaluateExpression</a></li><li><a href="global.html#evaluateFormula">evaluateFormula</a></li><li><a href="global.html#getAllRolls">getAllRolls</a></li><li><a href="global.html#getInitialRollIndex">getInitialRollIndex</a></li><li><a href="global.html#getMacroIndex">getMacroIndex</a></li><li><a href="global.html#getMacroName">getMacroName</a></li><li><a href="global.html#getMacrosFromCollection">getMacrosFromCollection</a></li><li><a href="global.html#getNewVariablesReduceHelper">getNewVariablesReduceHelper</a></li><li><a href="global.html#getPropertyByPath">getPropertyByPath</a></li><li><a href="global.html#getRollMetadata">getRollMetadata</a></li><li><a href="global.html#getRollType">getRollType</a></li><li><a href="global.html#getTargetCollection">getTargetCollection</a></li><li><a href="global.html#getUnassignedVariablesAndUsedMacros">getUnassignedVariablesAndUsedMacros</a></li><li><a href="global.html#isConditional">isConditional</a></li><li><a href="global.html#isExpansionOperator">isExpansionOperator</a></li><li><a href="global.html#isGlobalMacroInstance">isGlobalMacroInstance</a></li><li><a href="global.html#isGrouping">isGrouping</a></li><li><a href="global.html#isMacroInstance">isMacroInstance</a></li><li><a href="global.html#isNumber">isNumber</a></li><li><a href="global.html#isOperator">isOperator</a></li><li><a href="global.html#isRoll">isRoll</a></li><li><a href="global.html#isSideEffectOperator">isSideEffectOperator</a></li><li><a href="global.html#isSideEffectVariable">isSideEffectVariable</a></li><li><a href="global.html#isValidToken">isValidToken</a></li><li><a href="global.html#isValue">isValue</a></li><li><a href="global.html#isVariable">isVariable</a></li><li><a href="global.html#isVariableInstance">isVariableInstance</a></li><li><a href="global.html#objectMakerReduceHelper">objectMakerReduceHelper</a></li><li><a href="global.html#op1Precedes">op1Precedes</a></li><li><a href="global.html#operatorOrder">operatorOrder</a></li><li><a href="global.html#parseAssignments">parseAssignments</a></li><li><a href="global.html#parseTokens">parseTokens</a></li><li><a href="global.html#peek">peek</a></li><li><a href="global.html#rollAD">rollAD</a></li><li><a href="global.html#rollFormula">rollFormula</a></li><li><a href="global.html#splitTokenList">splitTokenList</a></li><li><a href="global.html#stripPrefix">stripPrefix</a></li><li><a href="global.html#stripSuffix">stripSuffix</a></li><li><a href="global.html#tokenize">tokenize</a></li><li><a href="global.html#validateAlternatingTokenType">validateAlternatingTokenType</a></li><li><a href="global.html#validateBrackets">validateBrackets</a></li><li><a href="global.html#validateClause">validateClause</a></li><li><a href="global.html#validateFormula">validateFormula</a></li><li><a href="global.html#validateParentheses">validateParentheses</a></li><li><a href="global.html#variableTargetsCollection">variableTargetsCollection</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.3</a> on Sun Mar 15 2020 19:20:15 GMT-0400 (Eastern Daylight Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.3</a> on Sun Mar 15 2020 19:52:36 GMT-0400 (Eastern Daylight Time)
 </footer>
 
 <script> prettyPrint(); </script>

@@ -30,7 +30,7 @@
   },
   "scripts": {
     "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json",
-    "build-types": "jsdoc lib/evaluateFormula.js -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json",
+    "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json",
     "lint": "eslint lib",
     "test": "jest",
     "watch-lint": "npm-watch lint",
