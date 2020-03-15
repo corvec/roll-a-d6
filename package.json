@@ -20,13 +20,20 @@
     "eslint-plugin-jsdoc": "^22.0.0",
     "jest": "^25.1.0",
     "jsdoc": "^3.6.3",
+    "npm-watch": "^0.6.0",
     "tsd-jsdoc": "^2.4.0"
+  },
+  "watch": {
+    "lint": "lib/**/*.js",
+    "test": "lib/**/*.js"
   },
   "scripts": {
     "build-docs": "jsdoc -r lib/ -d jsdoc",
     "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist",
-    "lint": "eslint .",
-    "test": "jest"
+    "lint": "eslint lib",
+    "test": "jest",
+    "watch-lint": "npm-watch lint",
+    "watch-test": "npm-watch test"
   },
   "type": "module"
 }
