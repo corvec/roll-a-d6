@@ -127,7 +127,7 @@ declare type EvaluationResult = {
 /**
  * Calculate the result of tokenized RPN expressions
  * @param {object} p
- * @param {RPNTokenList[]} p.expressions Expressions to evaluate
+ * @param {Array<RPNTokenList>} p.expressions Expressions to evaluate
  * @param {MacroMap} p.macros Macros referenced by these expressions / by other macros
  * @param {object<number,string[]>} [p.rolls={}] Saved rolls (by number of sides), in case of reevaluation
  *
@@ -569,6 +569,9 @@ declare type ResultRange = {
 };
 
 /**
+ * Determine the result given different values of a single input, and build the ResultRange to model
+ * this.
+ * @function buildResultRange
  * @param {object} p
  * @param {RPNTokenList[]} p.expressions
  * @param {Function} p.macrosWithCertainty
@@ -609,6 +612,7 @@ declare type RolledFormula = {
 
 /**
  * Validate, parse, and evaluate a formula, potentially pulling in collection data if needed
+ * @function rollFormula
  * @param {string} formula
  * @param {object.<string,string>} collectionFormulasMap
  * @returns {RolledFormula}
