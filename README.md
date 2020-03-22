@@ -91,5 +91,68 @@ Prefixing a variable reference with `^` will cause it to be treated as 0 if it w
 
 #### Macro evaluation
 
+By using the name of a macro, you can evaluate that macro in your formula.
+Macros can also reference other macros.
+
+Here is a simple example:
+
+```javascript
+import * as d6 from 'roll-a-d6';
+
+const macros = {
+  macro: '1d20>10->helperMacro;0',
+  helperMacro: '1d10+5',
+};
+const formula = 'macro+macro';
+const roll = d6.rollFormula(formula, macros);
+```
+
 ##### Global and Local Macro Instance Evaluation
+
+You may want to check the result of a macro and then use it.
+There are a couple ways to do this.
+
+One way involves using the `>>` and `<<` operators.
+For example, to choose the higher value between `macro1` and `macro2`, you would write 
+`macro1>>macro2`.
+
+The more advanced way involves global and local macro instances.
+
+`[]` is used for local macro instances. `{}` is used for global macro instances.
+
+Local macro instance evaluations are used only for the currently evaluated macro / formula.
+For example, you might want to know if the result of 1d20 was 20, 1, or if it was above a certain value.
+You can do this like so: `r=1d20,r[0]==20->crit;(r[0]==0->miss;r[0]>=minimum->hit)`
+
+Global macro instance evaluations are used for every macro that references them.
+They are more useful in very focused applications rather than in more general, reusable rolls.
+
+#### Side Effects
+
+As the result of a roll, you may want to change some value, like decreasing your uses of an ability.
+Alternatively, you may want to track a value during a roll and use it to determine what to do next.
+You can do this with side effects!
+
+Currently, only three side effects are supported:
+
+* `:=` (assignment)
+* `+=` (increment)
+* `-=` (decrement)
+
+If you wish to apply a side effect, you must prefix the name of the variable with `$`.
+
+You can use the `...` pseudo-operator between a side effect and the result you want to return.
+
+One example of a side effect, using the macros from above:
+
+```javascript
+  const myMacros = {
+    ...macros,
+    sneakAttack: '3d6',
+    sneakAttackIfPossible: 'canSneakAttack>0->$canSneakAttack:=0...sneakAttack;0',
+    attackWithSneakAttack: 'atk[0]>0->atk[0]+sneakAttackIfPossible;0',
+  };
+  const formula = 'canSneakAttack=1,2#+attackWithSneakAttack';
+  d6.rollFormula(formula, myMacros);
+```
 
