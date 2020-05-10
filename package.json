@@ -27,17 +27,29 @@
     "tsd-jsdoc": "^2.5.0"
   },
   "watch": {
-    "lint": "lib/**/*.js",
-    "test": "lib/**/*.js"
+    "lint": {
+      "pattern": ["lib"],
+      "extensions": "mjs"
+    },
+    "test": {
+      "pattern": ["lib"],
+      "extensions": "mjs"
+    }
   },
   "scripts": {
     "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json",
     "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json",
-    "lint": "eslint lib",
+    "lint": "eslint **/*.mjs",
     "prepare": "babel lib/index.mjs --out-file lib/index.js && babel lib/index.mjs --minified --no-comments --source-maps -o lib/index.min.js",
     "test": "jest",
     "watch-lint": "npm-watch lint",
     "watch-test": "npm-watch test"
   },
-  "type": "module"
+  "jest": {
+    "moduleFileExtensions": ["mjs", "js"],
+    "testMatch": ["**/**.test.mjs"],
+    "transform": {
+      "^.+\\.m?[jt]sx?$": "babel-jest"
+    }
+  }
 }
