@@ -1,6 +1,6 @@
 {
   "name": "roll-a-d6",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Sophisticated dice rolling library - tokenizer, parser, validator, and evaluator",
   "main": "./lib/index",
   "types": "./lib/roll-a-d6.d.ts",
@@ -40,10 +40,13 @@
     "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json",
     "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json",
     "lint": "eslint **/*.mjs",
-    "prepare": "babel lib/index.mjs --out-file lib/index.js && babel lib/index.mjs --minified --no-comments --source-maps -o lib/index.min.js",
+    "prep": "babel lib/*.mjs lib/**/*.mjs --ignore \"lib/**/*.test.mjs,lib/*.test.mjs\" --source-maps --out-dir lib",
     "test": "jest",
     "watch-lint": "npm-watch lint",
     "watch-test": "npm-watch test"
+  },
+  "babel": {
+    "plugins": ["@babel/plugin-transform-modules-commonjs"]
   },
   "jest": {
     "moduleFileExtensions": ["mjs", "js"],
