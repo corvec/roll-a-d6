@@ -1,9 +1,9 @@
 {
   "name": "roll-a-d6",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Sophisticated dice rolling library - tokenizer, parser, validator, and evaluator",
-  "main": "./lib/index",
-  "types": "./lib/roll-a-d6.d.ts",
+  "main": "lib/index",
+  "types": "lib/roll-a-d6.d.ts",
   "keywords": [
     "dice",
     "D&D"
@@ -40,7 +40,7 @@
     "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json",
     "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json",
     "lint": "eslint **/*.mjs",
-    "prep": "babel lib/*.mjs lib/**/*.mjs --ignore \"lib/**/*.test.mjs,lib/*.test.mjs\" --relative --source-maps --out-dir ./",
+    "prep": "babel lib/*.mjs lib/**/*.mjs --ignore \"lib/*.test.mjs,lib/**/*.test.mjs\" --relative --source-maps --out-dir ./",
     "test": "jest",
     "watch-lint": "npm-watch lint",
     "watch-test": "npm-watch test"
