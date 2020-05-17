@@ -50,7 +50,7 @@
     "lint": "eslint **/*.mjs",
     "prepublishOnly": "npm run test && npm run lint && npm run transpile && npm run build-docs && npm run build-types",
     "test": "jest",
-    "transpile": "babel lib/*.mjs lib/**/*.mjs --ignore \"lib/*.test.mjs,lib/**/*.test.mjs\" --relative --source-maps --out-dir ./",
+    "transpile": "babel lib --ignore \"*.test.mjs\" --relative --source-maps --out-dir cjs",
     "watch-lint": "npm-watch lint",
     "watch-test": "npm-watch test"
   },
