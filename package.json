@@ -7,7 +7,7 @@
     "import": "lib/index.mjs",
     "require": "cjs/bundle.js"
   },
-  "types": "lib/roll-a-d6.d.ts",
+  "types": "types/roll-a-d6.d.ts",
   "keywords": [
     "dice",
     "D&D"
@@ -28,6 +28,7 @@
     "jest": "^25.5.4",
     "jsdoc": "^3.6.4",
     "npm-watch": "^0.6.0",
+    "rollup": "^2.10.5",
     "tsd-jsdoc": "^2.5.0"
   },
   "watch": {
@@ -46,11 +47,11 @@
   },
   "scripts": {
     "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json -c ./jsdoc-config.json",
-    "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json -c ./jsdoc-config.json",
+    "build-types": "rm -rf ./types && jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json -c ./jsdoc-config.json",
     "lint": "eslint **/*.mjs",
-    "prepublishOnly": "npm run test && npm run lint && npm run transpile && npm run build-docs && npm run build-types",
+    "prepublishOnly": "npm install && npm run test && npm run lint && npm run transpile && npm run build-docs && npm run build-types",
     "test": "jest",
-    "transpile": "babel lib --ignore \"lib/**.test.mjs,lib/**/*.test.mjs\" --source-maps --out-dir ./cjs",
+    "transpile": "rm -rf ./cjs && rollup lib/index.mjs --file cjs/bundle.js --format cjs",
     "watch-lint": "npm-watch lint",
     "watch-test": "npm-watch test"
   },
@@ -64,6 +65,7 @@
       "mjs",
       "js"
     ],
+    "testEnvironment": "node",
     "testMatch": [
       "**/**.test.mjs",
       "**/**.test.js"
