@@ -1,0 +1,7 @@
+{
+  "sourceType": "module",
+  "source": {
+    "includePattern": ".+\\.m?js(doc|x)?$",
+    "excludePattern": ".+\\.test\\..+"
+  }
+}

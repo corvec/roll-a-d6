@@ -5,7 +5,7 @@
   "main": "lib/index.mjs",
   "exports": {
     "import": "lib/index.mjs",
-    "require": "lib/index.js"
+    "require": "cjs/bundle.js"
   },
   "types": "lib/roll-a-d6.d.ts",
   "keywords": [
@@ -45,12 +45,12 @@
     }
   },
   "scripts": {
-    "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json",
-    "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json",
+    "build-docs": "jsdoc -r lib/ -d jsdoc -R ./README.md -P ./package.json -c ./jsdoc-config.json",
+    "build-types": "jsdoc -r lib/ -t node_modules/tsd-jsdoc/dist -d types -R ./README.md -P ./package.json -c ./jsdoc-config.json",
     "lint": "eslint **/*.mjs",
     "prepublishOnly": "npm run test && npm run lint && npm run transpile && npm run build-docs && npm run build-types",
     "test": "jest",
-    "transpile": "babel lib --ignore \"*.test.mjs\" --relative --source-maps --out-dir cjs",
+    "transpile": "babel lib --ignore \"lib/**.test.mjs,lib/**/*.test.mjs\" --source-maps --out-dir ./cjs",
     "watch-lint": "npm-watch lint",
     "watch-test": "npm-watch test"
   },
@@ -65,10 +65,11 @@
       "js"
     ],
     "testMatch": [
-      "**/**.test.mjs"
+      "**/**.test.mjs",
+      "**/**.test.js"
     ],
     "transform": {
-      "^.+\\.m?[jt]sx?$": "babel-jest"
+      "^.+\\.mjsx?$": "babel-jest"
     }
   }
 }
