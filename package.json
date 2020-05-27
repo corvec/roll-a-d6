@@ -1,11 +1,11 @@
 {
   "name": "roll-a-d6",
-  "version": "0.2.9",
+  "version": "0.2.11",
   "description": "Sophisticated dice rolling library - tokenizer, parser, validator, and evaluator",
   "main": "lib/index.mjs",
   "exports": {
-    "import": "lib/index.mjs",
-    "require": "cjs/bundle.js"
+    "import": "./lib/index.mjs",
+    "require": "./cjs/bundle.js"
   },
   "types": "types/roll-a-d6.d.ts",
   "keywords": [

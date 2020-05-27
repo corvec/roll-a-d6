@@ -1,3 +1,8 @@
+cjs/
+jsdoc/
+types/
+
+# Ensure that any files that are added are also added to .npmignore, if necessary
 node_modules/
 .idea/
-cjs/
+
