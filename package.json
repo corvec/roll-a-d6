@@ -1,6 +1,6 @@
 {
   "name": "roll-a-d6",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Sophisticated dice rolling library - tokenizer, parser, validator, and evaluator",
   "main": "lib/index.mjs",
   "exports": {
