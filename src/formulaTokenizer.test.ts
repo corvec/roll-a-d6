@@ -5,12 +5,12 @@ import tokenize, {
   splitTokenList,
   stripPrefix,
   stripSuffix,
-} from './formulaTokenizer';
+} from './formulaTokenizer.js';
 
 it('tokenizes a fairly complex statement', () => {
   const result = tokenize('2*(1d20+8>ac||1d20==20->1d6+10)');
   expect(result).toEqual([
-    '2', '*', '(', '1d20', '+', '8', '>', 'ac', '||', '1d20', '==', '20', '->', '1d6', '+', '10', ')'
+    '2', '*', '(', '1d20', '+', '8', '>', 'ac', '||', '1d20', '==', '20', '->', '1d6', '+', '10', ')',
   ]);
 });
 
@@ -44,7 +44,7 @@ it('tokenizes subtraction of negative numbers', () => {
 
 it('tokenizes ac@defender', () => {
   const result = tokenize('1d20+5>=ac@defender');
-  expect(result).toEqual(['1d20','+','5','>=','ac@defender']);
+  expect(result).toEqual(['1d20', '+', '5', '>=', 'ac@defender']);
 });
 
 it('tokenizes assignment', () => {

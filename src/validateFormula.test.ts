@@ -1,4 +1,4 @@
-import validateFormula, { validateParentheses } from './validateFormula';
+import validateFormula, { validateParentheses } from './validateFormula.js';
 
 it('validates parentheses', () => {
   expect(validateParentheses('()()()()')).toEqual(true);

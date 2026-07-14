@@ -1,4 +1,4 @@
-import getRollMetadata from './getRollMetadata';
+import getRollMetadata from './getRollMetadata.js';
 
 const emptyResult = {
   internalMacros: {},
@@ -26,7 +26,7 @@ it('evaluates a simple value', () => {
   });
 });
 
-const getCM = (...formula) => ({ formula: formula.map(_ =>`${_}`), helpers: {} });
+const getCM = (...formula: Array<string | number>) => ({ formula: formula.map(_ => `${_}`), helpers: {} });
 
 it('evaluates a simple value', () => {
   const result = getRollMetadata('1+20', {});
@@ -46,11 +46,11 @@ it('evaluates a roll with some dependencies', () => {
   const result = getRollMetadata('1d20+bonus,bonus=Dex+prof',
     {
       Dex: getCM(5),
-      prof: { formula: ['2', 'foo', '+'], helpers: { foo: ['2'] } }
+      prof: { formula: ['2', 'foo', '+'], helpers: { foo: ['2'] } },
     });
   expect(result).toEqual({
     ...emptyResult,
-    internalMacros: { bonus: ['Dex', 'prof', '+']},
+    internalMacros: { bonus: ['Dex', 'prof', '+'] },
     externalMacros: {
       Dex: ['5'],
       prof: ['2', 'foo', '+'],
@@ -85,7 +85,7 @@ it('categorizes a dice roll with unknowns', () => {
     dmgDice: getCM('longSword'),
     longSword: getCM('^oneHanded', '->', '1d8', ';', '1d10'),
     longBow: getCM('1d8'),
-    bonus: getCM('Str','+','prof'),
+    bonus: getCM('Str', '+', 'prof'),
     Dex: getCM(5),
     Str: getCM(3),
     prof: getCM(4),
@@ -109,7 +109,7 @@ it('deals with target collections appropriately', () => {
   const result = getRollMetadata('roll+bonus>ac@Defender', {
     roll: getCM('1d20'),
     bonus: getCM(10),
-    ac: getCM(18)
+    ac: getCM(18),
   });
   expect(result).toEqual({
     ...emptyResult,
@@ -129,7 +129,7 @@ it('deals with target collections appropriately', () => {
 it('deals with target collections appropriately, even in helpers of Collection macros', () => {
   const result = getRollMetadata('atk,dmgDice=1d8', {
     atk: {
-      formula: ['hit','->','dmg','0'],
+      formula: ['hit', '->', 'dmg', '0'],
       helpers: {
         hit: ['roll', '+', 'bonus', '>', 'ac@Defender'],
         dmg: ['dmgDice', '+', 'bonus'],
@@ -137,7 +137,7 @@ it('deals with target collections appropriately, even in helpers of Collection m
     },
     roll: getCM('1d20'),
     bonus: getCM(10),
-    ac: getCM(18)
+    ac: getCM(18),
   });
   expect(result).toEqual({
     ...emptyResult,
@@ -145,7 +145,7 @@ it('deals with target collections appropriately, even in helpers of Collection m
       dmgDice: ['1d8'],
     },
     externalMacros: {
-      atk: ['hit','->','dmg','0'],
+      atk: ['hit', '->', 'dmg', '0'],
       hit: ['roll', '+', 'bonus', '>', 'ac@Defender'],
       dmg: ['dmgDice', '+', 'bonus'],
       bonus: ['10'],
@@ -158,5 +158,3 @@ it('deals with target collections appropriately, even in helpers of Collection m
     type: 'roll-with-unknowns',
   });
 });
-
-
