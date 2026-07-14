@@ -16,7 +16,9 @@ console.log(roll.result.join(', '));
 ```
 
 The components of the dice roller include the validator, tokenizer, parser, RPN converter, and evaluator.
-For more information, check out the API docs [here](./jsdoc/roll-a-d6/0.2.2/global.html).
+
+The library is written in TypeScript and ships with its own type declarations, alongside both ESM
+and CommonJS builds. No runtime dependencies are required.
 
 An example of a more sophisticated dice roll that this package supports:
 
