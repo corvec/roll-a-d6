@@ -53,22 +53,6 @@ export interface TargetedCollection {
  */
 export type RandomNumberGenerator = () => number;
 
-/** Metadata tracked while evaluating a set of expressions. */
-export interface EvaluationMetadata {
-  /** Available macros that could be referenced */
-  macros: MacroMap;
-  /** Source of randomness used for new dice rolls */
-  rng: RandomNumberGenerator;
-  /** Map from number of sides to saved roll results (e.g., {6: ['1(d6)','5(d6)']}) */
-  rolls: RollLog;
-  /** Map from number of sides to roll index */
-  rollIndex: Record<number, number>;
-  /** Saved results of global macro instances */
-  savedGlobalValues: Record<string, ResultEntry[]>;
-  /** Applied side effects this run */
-  sideEffects: SideEffects;
-}
-
 /** The output of evaluating a full set of expressions. */
 export interface EvaluationResult {
   /** Result of each expression, in order */

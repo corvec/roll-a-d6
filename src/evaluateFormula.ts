@@ -12,16 +12,14 @@ import {
 } from './formulaTokenizer.js';
 import { objectMakerReduceHelper, peek } from './helpers.js';
 import type {
-  EvaluationMetadata,
   EvaluationResult,
   MacroMap,
   RandomNumberGenerator,
   ResultEntry,
   RollLog,
   RPNTokenList,
+  SideEffects,
 } from './types.js';
-
-// TODO: [Tech Debt] Refactor this module to not mutate savedMacroValues or evaluationMetadata
 
 // Toggle this on if you would like messages logged throughout evaluateFormula
 const logEvaluate: boolean = false;
@@ -78,42 +76,8 @@ const evaluate = (token: string, v1: StackValue, v2: StackValue): ResultEntry =>
   }
 };
 
-
-/**
- * If `rolls` was provided (and thus, we have a `rollIndex`), then return the next roll.
- * Otherwise, generate the next roll and save it into rolls.
- */
-const rollAD = (sides: number, evaluationMetadata: EvaluationMetadata): number => {
-  if (rollIsSaved(sides, evaluationMetadata)) {
-    const rollResult = evaluationMetadata.rolls[sides][evaluationMetadata.rollIndex[sides]];
-    evaluationMetadata.rollIndex[sides] += 1;
-    return parseInt(rollResult, 10);
-  } else {
-    return addRoll(sides, evaluationMetadata);
-  }
-};
-
 const getInitialRollIndex = (sides: number[]): Record<number, number> =>
   sides.map((side): [string, number] => [`${side}`, 0]).reduce(objectMakerReduceHelper, {});
-
-const rollIsSaved = (sides: number, evaluationMetadata: EvaluationMetadata): boolean =>
-  typeof evaluationMetadata.rollIndex[sides] === 'number'
-    && evaluationMetadata.rollIndex[sides] < evaluationMetadata.rolls[sides].length;
-
-const addRoll = (sides: number, evaluationMetadata: EvaluationMetadata): number => {
-  const rollResult = Math.floor(sides * evaluationMetadata.rng()) + 1;
-  if (!evaluationMetadata.rolls.hasOwnProperty(sides)) {
-    evaluationMetadata.rolls[sides] = [];
-  }
-  evaluationMetadata.rolls[sides].push(`${rollResult}(d${sides})`);
-  return rollResult;
-};
-
-const rollRoll = (token: string, evaluationMetadata: EvaluationMetadata): number => {
-  const count = parseInt(token.slice(0, token.indexOf('d')), 10) || 1;
-  const sides = parseInt(token.slice(1 + token.indexOf('d')), 10);
-  return [...Array(count).keys()].reduce((accum) => accum + rollAD(sides, evaluationMetadata), 0);
-};
 
 const isBoolean = (token: StackValue): boolean => [true, false, 'true', 'false'].includes(token as boolean | string);
 const boolMap: Record<string, boolean> = { true: true, false: false };
@@ -158,31 +122,133 @@ const isGlobalMacroInstance = (token: string, macros: MacroMap): boolean => {
   return false;
 };
 
-const getOrEvalMacroInstance = (
+/** Memoized macro instance results, keyed by macro name and then instance index. */
+type MacroInstanceStore = Record<string, ResultEntry[]>;
+
+/**
+ * Return the memoized result for a macro instance token (e.g., 'foo[1]' or 'foo{1}'),
+ * evaluating and recording it on first use.
+ */
+const memoizeInstance = (
+  store: MacroInstanceStore,
   token: string,
-  evaluationMetadata: EvaluationMetadata,
-  savedMacroValues: Record<string, ResultEntry[]>,
+  evaluateInstance: () => ResultEntry,
 ): ResultEntry => {
   const macroName = getMacroName(token);
   const macroIndex = parseInt(getMacroIndex(token), 10);
 
-  if (!Array.isArray(savedMacroValues[macroName])) {
-    savedMacroValues[macroName] = [];
+  if (!Array.isArray(store[macroName])) {
+    store[macroName] = [];
   }
-  if (savedMacroValues[macroName].hasOwnProperty(macroIndex)) {
-    return savedMacroValues[macroName][macroIndex];
+  if (store[macroName].hasOwnProperty(macroIndex)) {
+    return store[macroName][macroIndex];
   }
-  const result = evaluateExpression(evaluationMetadata.macros[macroName], evaluationMetadata);
-  savedMacroValues[macroName][macroIndex] = result;
+  const result = evaluateInstance();
+  store[macroName][macroIndex] = result;
   return result;
 };
 
-interface ExpansionOperatorData {
-  operator: string;
-  initialValue: ResultEntry;
+/**
+ * Owns all of the mutable state for a single evaluateFormula run: the roll log and
+ * its replay cursor, the applied side effects, and the memoized global macro
+ * instances. Every mutation goes through one of its methods; the rest of this
+ * module is a pure function of (expression, context).
+ */
+class EvaluationContext {
+  /** Available macros that could be referenced */
+  readonly macros: MacroMap;
+  /** Map from number of sides to roll results; appended to as new dice are rolled */
+  readonly rolls: RollLog;
+  /** Side effects applied this run */
+  readonly sideEffects: SideEffects = {};
+  private readonly rng: RandomNumberGenerator;
+  /** Map from number of sides to the index of the next saved roll to replay */
+  private readonly rollIndex: Record<number, number>;
+  /** Memoized results of global macro instances (foo{1}), shared across expressions */
+  private readonly globalInstances: MacroInstanceStore = {};
+
+  constructor({ macros, rolls, rng }: {
+    macros: MacroMap;
+    rolls: RollLog;
+    rng: RandomNumberGenerator;
+  }) {
+    this.macros = macros;
+    this.rolls = rolls;
+    this.rng = rng;
+    this.rollIndex = getInitialRollIndex(Object.keys(rolls).map(sides => parseInt(sides, 10)));
+  }
+
+  /**
+   * Roll a dice token (e.g., '3d6') and return the sum.
+   */
+  rollDice(token: string): number {
+    const count = parseInt(token.slice(0, token.indexOf('d')), 10) || 1;
+    const sides = parseInt(token.slice(1 + token.indexOf('d')), 10);
+    return [...Array(count).keys()].reduce((accum) => accum + this.rollDie(sides), 0);
+  }
+
+  /**
+   * Roll a single die, replaying the next saved roll when one is available and
+   * generating (and logging) a new roll otherwise.
+   */
+  private rollDie(sides: number): number {
+    if (this.rollIsSaved(sides)) {
+      const rollResult = this.rolls[sides][this.rollIndex[sides]];
+      this.rollIndex[sides] += 1;
+      return parseInt(rollResult, 10);
+    }
+    return this.addRoll(sides);
+  }
+
+  private rollIsSaved(sides: number): boolean {
+    return typeof this.rollIndex[sides] === 'number'
+      && this.rollIndex[sides] < this.rolls[sides].length;
+  }
+
+  private addRoll(sides: number): number {
+    const rollResult = Math.floor(sides * this.rng()) + 1;
+    if (!this.rolls.hasOwnProperty(sides)) {
+      this.rolls[sides] = [];
+    }
+    this.rolls[sides].push(`${rollResult}(d${sides})`);
+    return rollResult;
+  }
+
+  hasSideEffect(name: string): boolean {
+    return this.sideEffects.hasOwnProperty(name);
+  }
+
+  getSideEffect(name: string): ResultEntry {
+    return this.sideEffects[name];
+  }
+
+  /** Apply the ':=' side effect. */
+  setSideEffect(name: string, value: ResultEntry): void {
+    this.sideEffects[name] = value;
+  }
+
+  /**
+   * Apply a '+=' or '-=' side effect (pass a negative delta for '-=').
+   * `currentValue` is only invoked when no side effect has been recorded for
+   * the variable yet, to seed it with the variable's pre-adjustment value.
+   */
+  adjustSideEffect(name: string, delta: number, currentValue: () => ResultEntry): void {
+    if (!this.hasSideEffect(name)) {
+      this.sideEffects[name] = currentValue();
+    }
+    this.sideEffects[name] = (this.sideEffects[name] as number) + delta;
+  }
+
+  /**
+   * Return the memoized result for a global macro instance (foo{1}), evaluating
+   * it on first use. Global instances are shared across all expressions.
+   */
+  memoizeGlobalInstance(token: string, evaluateInstance: () => ResultEntry): ResultEntry {
+    return memoizeInstance(this.globalInstances, token, evaluateInstance);
+  }
 }
 
-const getExpansionOperatorData = (expansionOperator: string): ExpansionOperatorData => ({
+const getExpansionOperatorData = (expansionOperator: string): { operator: string; initialValue: ResultEntry } => ({
   '#+': {
     operator: '+',
     initialValue: 0,
@@ -199,7 +265,7 @@ const getExpansionOperatorData = (expansionOperator: string): ExpansionOperatorD
     operator: '||',
     initialValue: false,
   },
-}[expansionOperator] as ExpansionOperatorData);
+}[expansionOperator] as { operator: string; initialValue: ResultEntry });
 
 const applyEvaluation = (expansionOperator: string, values: StackValue[]): ResultEntry => {
   const { operator, initialValue } = getExpansionOperatorData(expansionOperator);
@@ -207,13 +273,11 @@ const applyEvaluation = (expansionOperator: string, values: StackValue[]): Resul
 };
 
 const evaluateExpansionOperator = (
-  { stack, token, tokenIndex, expression, evaluationMetadata }: {
-    stack: StackValue[];
-    token: string;
-    tokenIndex: number;
-    expression: RPNTokenList;
-    evaluationMetadata: EvaluationMetadata;
-  },
+  stack: StackValue[],
+  token: string,
+  tokenIndex: number,
+  expression: RPNTokenList,
+  context: EvaluationContext,
 ): StackValue[] => {
   if (stack.length < 2) {
     throw new Error(`Expansion operator ${token} called with ${stack.length} operands (needs at least 2).`);
@@ -223,14 +287,14 @@ const evaluateExpansionOperator = (
     return [...stack.slice(0, -2), stack.slice(-1)[0]];
   }
   const repeatedValue = expression[tokenIndex - 1];
-  if (isRoll(repeatedValue) || isMacro(repeatedValue, evaluationMetadata.macros)) {
+  if (isRoll(repeatedValue) || isMacro(repeatedValue, context.macros)) {
     const expandedValues = [
       stack.slice(-1)[0],
       ...([...Array(repetitionCount - 1)].map(
         () => (
           isRoll(repeatedValue)
-            ? rollRoll(repeatedValue, evaluationMetadata)
-            : evaluateExpression(evaluationMetadata.macros[getMacroName(repeatedValue)], evaluationMetadata)
+            ? context.rollDice(repeatedValue)
+            : evaluateExpression(context.macros[getMacroName(repeatedValue)], context)
         ),
       )),
     ];
@@ -244,7 +308,7 @@ const evaluateExpansionOperator = (
   }
 };
 
-const evaluateOperator = ({ stack, token }: { stack: StackValue[]; token: string }): StackValue[] => {
+const evaluateOperator = (stack: StackValue[], token: string): StackValue[] => {
   if (stack.length < 2) {
     throw new Error(`Operator ${token} called with ${stack.length} operands (needs at least 2).`);
   } else {
@@ -256,63 +320,46 @@ const evaluateOperator = ({ stack, token }: { stack: StackValue[]; token: string
 };
 
 const evaluateValue = (
-  { stack, token, savedMacroValues, evaluationMetadata }: {
-    stack: StackValue[];
-    token: string;
-    savedMacroValues: Record<string, ResultEntry[]>;
-    evaluationMetadata: EvaluationMetadata;
-  },
+  stack: StackValue[],
+  token: string,
+  context: EvaluationContext,
+  localInstances: MacroInstanceStore,
 ): StackValue[] => {
-  const { macros } = evaluationMetadata;
-  const value = isRoll(token) ? rollRoll(token, evaluationMetadata)
+  const { macros } = context;
+  const evaluateNamedMacro = () => evaluateExpression(macros[getMacroName(token)], context);
+  const value = isRoll(token) ? context.rollDice(token)
     : isMacro(token, macros)
-      ? evaluationMetadata.sideEffects.hasOwnProperty(getMacroName(token))
-        ? evaluationMetadata.sideEffects[getMacroName(token)]
-        : evaluateExpression(macros[getMacroName(token)], evaluationMetadata)
-      : isGlobalMacroInstance(token, macros) ? getOrEvalMacroInstance(token, evaluationMetadata, evaluationMetadata.savedGlobalValues)
-        : isMacroInstance(token, macros) ? getOrEvalMacroInstance(token, evaluationMetadata, savedMacroValues)
+      ? context.hasSideEffect(getMacroName(token))
+        ? context.getSideEffect(getMacroName(token))
+        : evaluateNamedMacro()
+      : isGlobalMacroInstance(token, macros) ? context.memoizeGlobalInstance(token, evaluateNamedMacro)
+        : isMacroInstance(token, macros) ? memoizeInstance(localInstances, token, evaluateNamedMacro)
           : isBoolean(token) ? toBoolean(token)
             : parseInt(token, 10);
   log(`${token} => ${value}`);
   return [...stack, value];
 };
 
-const storeCurrentValue = (
-  { variableName, evaluationMetadata }: {
-    variableName: string;
-    evaluationMetadata: EvaluationMetadata;
-  },
-): void => {
-  evaluationMetadata.sideEffects[variableName] =
-    isMacro(variableName, evaluationMetadata.macros)
-      ? evaluateExpression(evaluationMetadata.macros[variableName], evaluationMetadata)
-      : 0;
-};
-
 const applySideEffect = (
-  { stack, token, evaluationMetadata }: {
-    stack: StackValue[];
-    token: string;
-    evaluationMetadata: EvaluationMetadata;
-  },
+  stack: StackValue[],
+  token: string,
+  context: EvaluationContext,
 ): StackValue[] => {
   const variableName = getMacroName(stack[stack.length - 2] as string);
-  const val = peek(stack);
+  const val = peek(stack) as number;
+  const currentValue = (): ResultEntry =>
+    (isMacro(variableName, context.macros)
+      ? evaluateExpression(context.macros[variableName], context)
+      : 0);
   switch (token) {
     case ':=':
-      evaluationMetadata.sideEffects[variableName] = val as ResultEntry;
+      context.setSideEffect(variableName, peek(stack) as ResultEntry);
       break;
     case '+=':
-      if (!evaluationMetadata.sideEffects.hasOwnProperty(variableName)) {
-        storeCurrentValue({ variableName, evaluationMetadata });
-      }
-      evaluationMetadata.sideEffects[variableName] = (evaluationMetadata.sideEffects[variableName] as number) + (val as number);
+      context.adjustSideEffect(variableName, val, currentValue);
       break;
     case '-=':
-      if (!evaluationMetadata.sideEffects.hasOwnProperty(variableName)) {
-        storeCurrentValue({ variableName, evaluationMetadata });
-      }
-      evaluationMetadata.sideEffects[variableName] = (evaluationMetadata.sideEffects[variableName] as number) - (val as number);
+      context.adjustSideEffect(variableName, -val, currentValue);
       break;
     default:
       throw new Error(`applySideEffect - invalid token(${token}).`);
@@ -329,7 +376,7 @@ const applySideEffect = (
 // Finally, when we encounter ELSE (;), check the top of the stack.
 // If it's ->, clear it from the stack.
 // Otherwise, just return the stack.
-const evaluateConditional = ({ stack, token }: { stack: StackValue[]; token: string }): StackValue[] => {
+const evaluateConditional = (stack: StackValue[], token: string): StackValue[] => {
   switch (token) {
     case '=>': // placeholder
       if (peek(stack)) {
@@ -354,29 +401,27 @@ const evaluateConditional = ({ stack, token }: { stack: StackValue[]; token: str
   }
 };
 
-// used to avoid traversing the falsy path with if-then conditionals
-const ignoreToken = ({ stack }: { stack: StackValue[] }): StackValue[] => stack;
-
-const evaluateExpression = (expression: RPNTokenList, evaluationMetadata: EvaluationMetadata): ResultEntry => {
-  // Preserve the values of macros within a single expression
-  const savedMacroValues: Record<string, ResultEntry[]> = {};
+const evaluateExpression = (expression: RPNTokenList, context: EvaluationContext): ResultEntry => {
+  // Memoized local macro instances (foo[1]) live only as long as a single expression
+  const localInstances: MacroInstanceStore = {};
   log(`evaluating ${expression && expression.join(' ')}`);
   const result = expression.reduce((stack: StackValue[], token, tokenIndex) => {
     const top = peek(stack);
     if (isConditional(token)) {
-      return evaluateConditional({ stack, token });
+      return evaluateConditional(stack, token);
     } else if ((typeof top === 'string' && isConditional(top)) || token === '...') {
-      return ignoreToken({ stack });
+      // skip tokens on an un-traversed conditional path, and the '...' separator
+      return stack;
     } else if (isSideEffectVariable(token)) {
       return [...stack, token];
     } else if (isSideEffectOperator(token)) {
-      return applySideEffect({ stack, token, evaluationMetadata });
+      return applySideEffect(stack, token, context);
     } else if (isExpansionOperator(token)) {
-      return evaluateExpansionOperator({ stack, token, tokenIndex, expression, evaluationMetadata });
+      return evaluateExpansionOperator(stack, token, tokenIndex, expression, context);
     } else if (isOperator(token)) {
-      return evaluateOperator({ stack, token });
+      return evaluateOperator(stack, token);
     } else {
-      return evaluateValue({ stack, token, evaluationMetadata, savedMacroValues });
+      return evaluateValue(stack, token, context, localInstances);
     }
   }, []);
   return result[result.length - 1];
@@ -398,18 +443,9 @@ const evaluateFormula = (
     rng?: RandomNumberGenerator;
   },
 ): EvaluationResult => {
-  const evaluationMetadata: EvaluationMetadata = {
-    macros,
-    rng,
-    rolls,
-    rollIndex: getInitialRollIndex(Object.keys(rolls).map(sides => parseInt(sides, 10))),
-    savedGlobalValues: {},
-    sideEffects: {},
-  };
-  const result = expressions.map(expression => evaluateExpression(
-    expression, evaluationMetadata,
-  ));
-  return { result, rolls: evaluationMetadata.rolls, sideEffects: evaluationMetadata.sideEffects };
+  const context = new EvaluationContext({ macros, rolls, rng });
+  const result = expressions.map(expression => evaluateExpression(expression, context));
+  return { result, rolls: context.rolls, sideEffects: context.sideEffects };
 };
 
 export default evaluateFormula;

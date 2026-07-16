@@ -23,7 +23,6 @@ export {
 
 export type {
   CollectionRoll,
-  EvaluationMetadata,
   EvaluationResult,
   MacroCollection,
   MacroMap,
