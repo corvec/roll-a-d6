@@ -47,10 +47,18 @@ export interface TargetedCollection {
   collections?: Record<string, TargetedCollection>;
 }
 
+/**
+ * A random number generator: returns a number in [0, 1), like Math.random.
+ * Inject a seeded implementation for deterministic rolls.
+ */
+export type RandomNumberGenerator = () => number;
+
 /** Metadata tracked while evaluating a set of expressions. */
 export interface EvaluationMetadata {
   /** Available macros that could be referenced */
   macros: MacroMap;
+  /** Source of randomness used for new dice rolls */
+  rng: RandomNumberGenerator;
   /** Map from number of sides to saved roll results (e.g., {6: ['1(d6)','5(d6)']}) */
   rolls: RollLog;
   /** Map from number of sides to roll index */

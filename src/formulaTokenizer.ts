@@ -47,7 +47,7 @@ export const isNumber = (token: string | number): boolean =>
 /**
  * Is the token a roll (e.g., '3d6')?
  */
-export const isRoll = (token: string): boolean => /\d+d\d+/.test(token);
+export const isRoll = (token: string): boolean => /^\d+d\d+$/.test(token);
 
 /**
  * Is the token a grouping operator (either '(' or ')')?
@@ -98,7 +98,7 @@ export const stripPrefix = (variable: string): string => variable.replace(/^[\^$
  * stripSuffix('atk[1]')
  */
 export const stripSuffix = (variableInstance: string): string => variableInstance
-  .replace(/@[A-Z]\w*$/, '')
+  .replace(/@[A-Za-z]\w*$/, '')
   .replace(/(\[.*]|{.*})$/, '');
 
 /**
@@ -106,22 +106,17 @@ export const stripSuffix = (variableInstance: string): string => variableInstanc
  * @example // returns [['a'],['c']]
  * splitTokenList(['a', ',', 'c'])
  */
-export const splitTokenList = (tokens: string[]): string[][] => tokens.reduce(
-  (accum: string[][], token) => {
+export const splitTokenList = (tokens: string[]): string[][] => {
+  const result: string[][] = [[]];
+  for (const token of tokens) {
     if (token === ',') {
-      return [...accum, []];
+      result.push([]);
     } else {
-      return [
-        ...accum.slice(0, -1),
-        [
-          ...accum[accum.length - 1],
-          token,
-        ],
-      ];
+      result[result.length - 1].push(token);
     }
-  },
-  [[]],
-);
+  }
+  return result;
+};
 
 /**
  * Every token MUST match this Regex.

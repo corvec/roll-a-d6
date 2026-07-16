@@ -15,6 +15,7 @@ import type {
   EvaluationMetadata,
   EvaluationResult,
   MacroMap,
+  RandomNumberGenerator,
   ResultEntry,
   RollLog,
   RPNTokenList,
@@ -100,7 +101,7 @@ const rollIsSaved = (sides: number, evaluationMetadata: EvaluationMetadata): boo
     && evaluationMetadata.rollIndex[sides] < evaluationMetadata.rolls[sides].length;
 
 const addRoll = (sides: number, evaluationMetadata: EvaluationMetadata): number => {
-  const rollResult = Math.floor(sides * Math.random()) + 1;
+  const rollResult = Math.floor(sides * evaluationMetadata.rng()) + 1;
   if (!evaluationMetadata.rolls.hasOwnProperty(sides)) {
     evaluationMetadata.rolls[sides] = [];
   }
@@ -386,16 +387,20 @@ const evaluateExpression = (expression: RPNTokenList, evaluationMetadata: Evalua
  * @param p.expressions Expressions to evaluate
  * @param p.macros Macros referenced by these expressions / by other macros
  * @param p.rolls Saved rolls (by number of sides), in case of reevaluation
+ * @param p.rng Source of randomness for new dice rolls; defaults to Math.random.
+ *              Inject a seeded generator for deterministic results.
  */
 const evaluateFormula = (
-  { expressions, macros, rolls = {} }: {
+  { expressions, macros, rolls = {}, rng = Math.random }: {
     expressions: RPNTokenList[];
     macros: MacroMap;
     rolls?: RollLog;
+    rng?: RandomNumberGenerator;
   },
 ): EvaluationResult => {
   const evaluationMetadata: EvaluationMetadata = {
     macros,
+    rng,
     rolls,
     rollIndex: getInitialRollIndex(Object.keys(rolls).map(sides => parseInt(sides, 10))),
     savedGlobalValues: {},
