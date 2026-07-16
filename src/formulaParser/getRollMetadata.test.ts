@@ -28,15 +28,6 @@ it('evaluates a simple value', () => {
 
 const getCM = (...formula: Array<string | number>) => ({ formula: formula.map(_ => `${_}`), helpers: {} });
 
-it('evaluates a simple value', () => {
-  const result = getRollMetadata('1+20', {});
-  expect(result).toEqual({
-    ...emptyResult,
-    value: [21],
-    type: 'value',
-  });
-});
-
 it('evaluates a simple roll with a side effect', () => {
   const result = getRollMetadata('1d20>10->$a+=1;0');
   expect(result.sideEffects).toEqual(['a']);

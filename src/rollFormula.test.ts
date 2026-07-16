@@ -54,6 +54,25 @@ it('roll details for un-traversed paths are not present', () => {
   expect(getAllRolls(roll2.rolls as RollLog).length).toBe(4);
 });
 
+it('throws a ValidationError for an invalid formula', () => {
+  expect(() => d6.rollFormula('1+', {})).toThrow(d6.ErrorTypes.ValidationError);
+  expect(() => d6.rollFormula('1+', {})).toThrow(/Invalid formula/);
+});
+
+it('accepts an injected rng for deterministic rolls', () => {
+  const minRoll = d6.rollFormula('1d20+Strength,1d8+Strength', { Strength: '5' }, {}, { rng: () => 0 });
+  expect(minRoll.result).toEqual([6, 6]);
+  const maxRoll = d6.rollFormula('1d20+Strength,1d8+Strength', { Strength: '5' }, {}, { rng: () => 0.999999 });
+  expect(maxRoll.result).toEqual([25, 13]);
+});
+
+it('handles side effects with lowercase target collections', () => {
+  const formula = '1d20>0->$sneakAttack@target-=1...10;0';
+  const { result, sideEffects } = d6.rollFormula(formula, { 'sneakAttack@target': '1' });
+  expect(result[0]).toBe(10);
+  expect(sideEffects).toStrictEqual({ 'sneakAttack@target': 0 });
+});
+
 it('handles internal-only side effects', () => {
   const formula = 'a=1,decA=a>0->$a-=1...10;0,decA+decA';
   const { result, sideEffects } = d6.rollFormula(formula, {});
@@ -115,6 +134,21 @@ it('works with a different, incongrous dice path', () => {
   expect(results.length).toBe(2);
   expect((results[0].result[0] as number) < 11).toBe(true);
   expect((results[1].result[0] as number) > 11).toBe(true);
+});
+
+it('supports a custom maxRange for result ranges', () => {
+  const formula = 'm=?,m>=50->1;0';
+  // With the default maxRange of 40, the boundary at 50 is never probed
+  const defaultRoll = d6.rollFormula(formula, {});
+  expect((defaultRoll.result as ResultRange[]).length).toBe(1);
+  // With a larger maxRange, the boundary is found
+  const roll = d6.rollFormula(formula, {}, {}, { maxRange: 60 });
+  const results = roll.result as ResultRange[];
+  expect(results.length).toBe(2);
+  expect(results[0].maxValue).toBe(49);
+  expect(results[0].result).toEqual([0]);
+  expect(results[1].minValue).toBe(50);
+  expect(results[1].result).toEqual([1]);
 });
 
 it('buildResultRange tested with Animate Objects (failing case found in 0.2.2)', () => {

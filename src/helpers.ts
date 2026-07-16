@@ -2,6 +2,8 @@ import type { RollLog } from './types.js';
 
 /**
  * This helper enables mapping over the entries in an object that is being used like a Map.
+ * NOTE: The accumulator is mutated (and returned) for efficiency, so always seed the
+ * reduce with a fresh object.
  * @example // returns { a: 2, b: 4 }
  * Object.entries({ a: 1, b: 2 }).map(([k,v]) => [k, v*2]).reduce(objectMakerReduceHelper, {})
  * @param accum (Accumulator) This accumulates the return values of this function
@@ -10,7 +12,10 @@ import type { RollLog } from './types.js';
 export const objectMakerReduceHelper = <T>(
   accum: Record<string, T>,
   [key, val]: [string, T],
-): Record<string, T> => ({ ...accum, [key]: val });
+): Record<string, T> => {
+  accum[key] = val;
+  return accum;
+};
 
 /**
  * Safely descend into the object and retrieve the value at the described path
@@ -37,4 +42,4 @@ export const peek = <T>(array: T[]): T | undefined =>
  * getAllRolls({ 6: ['1d6', '3d6'], 20: ['15d20', '4d20'] })
  */
 export const getAllRolls = (rolls: RollLog): string[] =>
-  Object.values(rolls).reduce((accum: string[], newRolls) => [...accum, ...newRolls], []);
+  Object.values(rolls).flat();

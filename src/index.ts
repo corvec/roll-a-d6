@@ -25,13 +25,14 @@ export type {
   EvaluationResult,
   MacroCollection,
   MacroMap,
+  RandomNumberGenerator,
   ResultEntry,
   RollLog,
   RPNTokenList,
   SideEffects,
   TargetedCollection,
 } from './types.js';
-export type { ResultRange, RolledFormula } from './rollFormula.js';
+export type { ResultRange, RolledFormula, RollFormulaOptions } from './rollFormula.js';
 export type { RollMetadata, RollType } from './formulaParser/getRollMetadata.js';
 export type { ParsedTokenList } from './formulaParser/parseTokens.js';
 export type { UnassignedVariablesAndUsedMacros } from './formulaParser/getUnassignedVariablesAndUsedMacros.js';

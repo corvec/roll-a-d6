@@ -190,6 +190,32 @@ it('r=5>4,4#|r', () => {
   expect(result).toEqual(getResult(true));
 });
 
+it('rolls deterministically with an injected rng', () => {
+  const { result: minResult } = evaluateFormula({ expressions: [['3d6']], macros: {}, rng: () => 0 });
+  expect(minResult).toEqual([3]);
+  const { result: maxResult } = evaluateFormula({ expressions: [['3d6']], macros: {}, rng: () => 0.999999 });
+  expect(maxResult).toEqual([18]);
+});
+
+it('consumes the injected rng once per die and logs each roll', () => {
+  const values = [0, 0.5, 0.95]; // on a d20: 1, 11, 20
+  let callCount = 0;
+  const rng = () => values[callCount++ % values.length];
+  const { result, rolls } = evaluateFormula({ expressions: [['3d20']], macros: {}, rng });
+  expect(result).toEqual([32]);
+  expect(rolls[20]).toEqual(['1(d20)', '11(d20)', '20(d20)']);
+  expect(callCount).toBe(3);
+});
+
+it('does not consume the rng when reevaluating saved rolls', () => {
+  let callCount = 0;
+  const rng = () => { callCount += 1; return 0.5; };
+  const { rolls } = evaluateFormula({ expressions: [['2d6']], macros: {}, rng });
+  expect(callCount).toBe(2);
+  evaluateFormula({ expressions: [['2d6']], macros: {}, rolls, rng });
+  expect(callCount).toBe(2);
+});
+
 it('simple reevaluation returns the same value', () => {
   const expressions = [['1d100']];
   const macros = {};

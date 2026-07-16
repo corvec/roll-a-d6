@@ -159,13 +159,7 @@ export const validateFormula = (formula: string): string[] => {
     throw new Error('validateFormula() called with an invalid formula (i.e., of a non-string type)');
   }
   const clauses = formula.split(',');
-  const result = clauses.reduce(
-    (accum: string[], clause, i) => [
-      ...accum,
-      ...validateClause(clause, i + 1),
-    ],
-    [],
-  );
+  const result = clauses.flatMap((clause, i) => validateClause(clause, i + 1));
   if (!enableLogging) {
     return result;
   }

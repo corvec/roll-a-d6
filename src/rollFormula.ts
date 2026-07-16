@@ -6,6 +6,7 @@ import { getPropertyByPath, objectMakerReduceHelper } from './helpers.js';
 import * as ErrorTypes from './errorTypes.js';
 import type {
   MacroMap,
+  RandomNumberGenerator,
   ResultEntry,
   RollLog,
   RPNTokenList,
@@ -28,10 +29,14 @@ export interface ResultRange {
 
 /**
  * Determine the result given different values of a single input, and build the ResultRange to model
- * this.
+ * this. Input values from 0 up to (but not including) `maxRange` are probed; boundaries at or
+ * above `maxRange` will not be discovered.
+ *
+ * NOTE: The passed `rolls` log is mutated - any additional rolls made while probing are appended
+ * to it, so that every probe reuses the same underlying dice results.
  */
 export const buildResultRange = (
-  { expressions, macrosWithCertainty, rolls, uncertainValues, result, maxRange = 40, initialSideEffects }: {
+  { expressions, macrosWithCertainty, rolls, uncertainValues, result, maxRange = 40, initialSideEffects, rng }: {
     expressions: RPNTokenList[];
     macrosWithCertainty: (value: number) => MacroMap;
     rolls: RollLog;
@@ -39,6 +44,7 @@ export const buildResultRange = (
     result: ResultEntry[];
     maxRange?: number;
     initialSideEffects: SideEffects;
+    rng?: RandomNumberGenerator;
   },
 ): ResultRange[] =>
   [...Array(maxRange).keys()].reduce(
@@ -47,6 +53,7 @@ export const buildResultRange = (
         expressions,
         macros: macrosWithCertainty(testValue),
         rolls, // don't need to pass a new one in because we mutate the old one
+        rng,
       });
       if (currentResult.every((value, index) => value === accum.slice(-1)[0].result[index])) {
         return accum;
@@ -81,7 +88,7 @@ export interface RolledFormula {
    */
   result: ResultEntry[] | ResultRange[];
   /** Log of all rolls made as part of the evaluation */
-  rolls: RollLog | [];
+  rolls: RollLog;
   /** Side effects applied from this roll */
   sideEffects?: SideEffects;
   /** Macros that were included in the initial expression */
@@ -112,23 +119,39 @@ const convertToFormulasMap = (
 };
 
 
+export interface RollFormulaOptions {
+  /**
+   * When the formula contains an uncertain value ('?'), input values from 0 up to (but not
+   * including) maxRange are probed to build the result ranges. Defaults to 40.
+   */
+  maxRange?: number;
+  /**
+   * Source of randomness for dice rolls; defaults to Math.random. Inject a seeded generator
+   * for deterministic results.
+   */
+  rng?: RandomNumberGenerator;
+}
+
 /**
  * Validate, parse, and evaluate a formula, potentially pulling in collection data if needed
  * @param formula The base formula to roll
  * @param collectionFormulasMap Any helper functions that are available
  * @param targetedCollections Map of collection names to collection objects. For targeting.
+ * @param options Evaluation options (maxRange, rng)
+ * @throws {ErrorTypes.ValidationError} if the formula fails validation
+ * @throws {ErrorTypes.UnknownVariablesError} if the formula references variables that are not
+ *         assigned, not available as macros, and not marked as no-prompt (^) variables
  */
 export const rollFormula = (
   formula: string,
   collectionFormulasMap: Record<string, string>,
   targetedCollections: Record<string, TargetedCollection> = {},
+  options: RollFormulaOptions = {},
 ): RolledFormula => {
+  const { maxRange, rng } = options;
   const validity = validateFormula(formula);
   if (validity.length > 0) {
-    return {
-      result: [`Invalid formula! Issues: ${validity.join(', ')}`],
-      rolls: [],
-    };
+    throw new ErrorTypes.ValidationError(validity);
   }
   const tokens = tokenize(formula) as string[];
 
@@ -168,15 +191,15 @@ export const rollFormula = (
     throw new Error('Multiple uncertain values are not yet supported.');
   }
   if (uncertainValues.length === 0) {
-    const { result, rolls, sideEffects } = evaluateFormula({ expressions, macros: allMacros });
+    const { result, rolls, sideEffects } = evaluateFormula({ expressions, macros: allMacros, rng });
     return { result, rolls, sideEffects, allMacros, macros };
   }
   const macrosWithCertainty = (value: number): MacroMap => ({
     ...allMacros,
     [uncertainValues[0]]: [`${value}`],
   });
-  const { result, rolls, sideEffects: initialSideEffects } = evaluateFormula({ expressions, macros: macrosWithCertainty(0) });
-  const resultRange = buildResultRange({ expressions, macrosWithCertainty, result, rolls, uncertainValues, initialSideEffects });
+  const { result, rolls, sideEffects: initialSideEffects } = evaluateFormula({ expressions, macros: macrosWithCertainty(0), rng });
+  const resultRange = buildResultRange({ expressions, macrosWithCertainty, result, rolls, uncertainValues, initialSideEffects, maxRange, rng });
 
   return { result: resultRange, rolls, allMacros, macros };
 };
