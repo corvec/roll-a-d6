@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Run tests
+        shell: bash
+        run: npx jest --ci 2>&1 | tee test-output.txt
+
+      - name: Report test results
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Test results (Node ${{ matrix.node-version }})"
+            echo '```'
+            tail -n 20 test-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke test packaged module (ESM + CJS)
+        shell: bash
+        run: |
+          pack=$(npm pack --silent)
+          mkdir -p "$RUNNER_TEMP/smoke"
+          cd "$RUNNER_TEMP/smoke"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/$pack" >/dev/null
+          node --input-type=module -e "
+            import * as d6 from 'roll-a-d6';
+            const r = d6.rollFormula('1d20+5', {}, {}, { rng: () => 0 });
+            if (r.result[0] !== 6) throw new Error('ESM smoke test failed');
+            console.log('ESM smoke test ok');
+          "
+          node -e "
+            const d6 = require('roll-a-d6');
+            const r = d6.rollFormula('1d20+5', {}, {}, { rng: () => 0 });
+            if (r.result[0] !== 6) throw new Error('CJS smoke test failed');
+            console.log('CJS smoke test ok');
+          "
