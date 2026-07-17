@@ -1,5 +1,6 @@
 import * as d6 from './index.js';
-import { getAllRolls } from './helpers.js';
+
+const { getAllRolls } = d6.helpers;
 import type { MacroMap, ResultEntry, RollLog } from './types.js';
 import type { ResultRange } from './rollFormula.js';
 
