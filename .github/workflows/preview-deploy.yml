@@ -5,8 +5,16 @@ name: Preview Deploy
 #
 # demo.dicerollr.com is the GitHub Pages site of corvec/roll-a-d6-basic; each
 # preview lives in a subdirectory of its gh-pages branch, alongside the
-# production deploy at the root. Requires the PREVIEW_DEPLOY_TOKEN secret
-# (a token with contents read/write on corvec/roll-a-d6-basic).
+# production deploy at the root.
+#
+# Credentials (repository secrets on corvec/roll-a-d6) - either style works:
+#   * PREVIEW_DEPLOY_TOKEN - a fine-grained PAT with Contents: Read on
+#     corvec/engineers-dice-roller and Contents: Read and write on
+#     corvec/roll-a-d6-basic. Takes precedence when set.
+#   * APP_DEPLOY_KEY + SITE_DEPLOY_KEY - private halves of two per-repo SSH
+#     deploy keys: a read-only key on engineers-dice-roller and a
+#     write-enabled key on roll-a-d6-basic. (GitHub does not allow one deploy
+#     key on multiple repos.)
 #
 # Trigger by adding the `deploy-preview` label to a PR (subsequent pushes then
 # redeploy automatically), or manually via workflow_dispatch.
@@ -28,19 +36,26 @@ jobs:
   preview:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'deploy-preview')
     runs-on: ubuntu-latest
+    env:
+      HAS_PAT: ${{ secrets.PREVIEW_DEPLOY_TOKEN != '' }}
+      HAS_DEPLOY_KEYS: ${{ secrets.APP_DEPLOY_KEY != '' && secrets.SITE_DEPLOY_KEY != '' }}
     steps:
-      - name: Fail fast if PREVIEW_DEPLOY_TOKEN is unusable
+      - name: Check deploy credentials
+        run: |
+          if [ "$HAS_PAT" != "true" ] && [ "$HAS_DEPLOY_KEYS" != "true" ]; then
+            echo "::error::No usable deploy credentials. Either set PREVIEW_DEPLOY_TOKEN (fine-grained PAT: Contents Read on corvec/engineers-dice-roller, Contents Read+write on corvec/roll-a-d6-basic), or set BOTH APP_DEPLOY_KEY (private key of a read-only deploy key on engineers-dice-roller) and SITE_DEPLOY_KEY (private key of a write-enabled deploy key on roll-a-d6-basic) as repository secrets on corvec/roll-a-d6."
+            exit 1
+          fi
+
+      - name: Verify PREVIEW_DEPLOY_TOKEN access
+        if: env.HAS_PAT == 'true'
         env:
           TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
         run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::error::PREVIEW_DEPLOY_TOKEN is empty. Add it as a Repository secret (Settings > Secrets and variables > Actions) on corvec/roll-a-d6."
-            exit 1
-          fi
           status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
             https://api.github.com/repos/corvec/engineers-dice-roller)
           if [ "$status" != "200" ]; then
-            echo "::error::PREVIEW_DEPLOY_TOKEN cannot read corvec/engineers-dice-roller (HTTP $status). Check that the token is valid (not expired/revoked) and grants Contents: Read on that repo, plus Contents: Read and write on corvec/roll-a-d6-basic."
+            echo "::error::PREVIEW_DEPLOY_TOKEN cannot read corvec/engineers-dice-roller (HTTP $status). Check that the token is a valid fine-grained PAT (not an SSH deploy key, not expired) granting Contents: Read on that repo and Contents: Read and write on corvec/roll-a-d6-basic."
             exit 1
           fi
 
@@ -63,18 +78,27 @@ jobs:
           echo "tarball=$(npm pack --silent)" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Check out engineers-dice-roller
+      # Compat branch for the post-TypeScript roll-a-d6 API; switch to the
+      # default branch once the compat changes are merged there. The repo is
+      # private, so the default GITHUB_TOKEN (scoped to roll-a-d6) cannot
+      # read it.
+      - name: Check out engineers-dice-roller (PAT)
+        if: env.HAS_PAT == 'true'
         uses: actions/checkout@v4
         with:
           repository: corvec/engineers-dice-roller
-          # Compat branch for the post-TypeScript roll-a-d6 API; switch to the
-          # default branch once the compat changes are merged there.
           ref: claude/roll-a-d6-0.4-compat
           path: app
-          # The repo is private, so the default GITHUB_TOKEN (scoped to
-          # roll-a-d6 only) cannot read it. PREVIEW_DEPLOY_TOKEN must have
-          # contents: read on corvec/engineers-dice-roller.
           token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+
+      - name: Check out engineers-dice-roller (deploy key)
+        if: env.HAS_PAT != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/engineers-dice-roller
+          ref: claude/roll-a-d6-0.4-compat
+          path: app
+          ssh-key: ${{ secrets.APP_DEPLOY_KEY }}
 
       - name: Use Node 16 for the CRA build
         # react-scripts 3.x (webpack 4) fails on Node 17+ due to the OpenSSL 3
@@ -90,17 +114,29 @@ jobs:
           # CRA treats lint warnings as build failures when CI=true
           CI: 'false'
         run: |
-          npm install --no-audit --no-fund
+          # Installing the tarball in the same command as the rest of the
+          # dependencies replaces the package.json git spec for roll-a-d6, so
+          # npm never needs to clone it from GitHub.
           npm install --no-audit --no-fund "$GITHUB_WORKSPACE/roll-a-d6/${{ steps.pack.outputs.tarball }}"
           npm run build
 
-      - name: Check out demo site (gh-pages of roll-a-d6-basic)
+      - name: Check out demo site (PAT)
+        if: env.HAS_PAT == 'true'
         uses: actions/checkout@v4
         with:
           repository: corvec/roll-a-d6-basic
           ref: gh-pages
           path: site
           token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+
+      - name: Check out demo site (deploy key)
+        if: env.HAS_PAT != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/roll-a-d6-basic
+          ref: gh-pages
+          path: site
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
 
       - name: Publish preview
         shell: bash
