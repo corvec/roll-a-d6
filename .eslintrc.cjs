@@ -1,25 +1,17 @@
 module.exports = {
-  parser: 'babel-eslint',
-  extends: ['plugin:jsdoc/recommended'],
-  parserOptions: {
-    'sourceType': 'module'
-  },
-  plugins: ['fp'],
+  root: true,
+  parser: '@typescript-eslint/parser',
+  plugins: ['@typescript-eslint'],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
   env: {
-    es6: true,
+    es2022: true,
     node: true,
-    jest: true
+    jest: true,
   },
   rules: {
-    'jsdoc/require-jsdoc': 'warn',
-    'jsdoc/require-param-description': 'off',
-    'jsdoc/require-returns-description': 'off',
-    'jsdoc/newline-after-description': 'off',
-    'jsdoc/no-undefined-types': 'off',
-    'fp/no-nil': 'off',
-    'fp/no-unused-expression': 'off',
-    'fp/no-throw': 'warn',
-    'fp/no-mutation': 'warn',
+    // The codebase intentionally calls .hasOwnProperty() on plain object literals,
+    // where it is safe. Object.hasOwn() would require raising the runtime target.
+    'no-prototype-builtins': 'off',
   },
-  ignorePatterns: ['build/']
+  ignorePatterns: ['dist/', 'cjs/', 'jsdoc/', 'types/', 'node_modules/'],
 };

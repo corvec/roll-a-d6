@@ -1,0 +1,91 @@
+name: Preview Cleanup
+
+# Prunes old preview deploys (top-level hex-named directories) from the
+# gh-pages branch of corvec/roll-a-d6-basic, which serves demo.dicerollr.com.
+# The production deploy at the branch root (index.html, CNAME, etc.) is never
+# touched. Runs weekly, or on demand with a custom age cutoff.
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: Delete previews whose last update is older than this many days
+        default: '30'
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      HAS_PAT: ${{ secrets.PREVIEW_DEPLOY_TOKEN != '' }}
+      HAS_SITE_KEY: ${{ secrets.SITE_DEPLOY_KEY != '' }}
+    steps:
+      - name: Determine deploy credentials
+        env:
+          TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+        run: |
+          mode=""
+          if [ "$HAS_PAT" = "true" ]; then
+            status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+              https://api.github.com/repos/corvec/roll-a-d6-basic || true)
+            if [ "$status" = "200" ]; then
+              mode=pat
+            else
+              echo "::warning::PREVIEW_DEPLOY_TOKEN is set but cannot read corvec/roll-a-d6-basic (HTTP $status); ignoring it."
+            fi
+          fi
+          if [ -z "$mode" ] && [ "$HAS_SITE_KEY" = "true" ]; then
+            mode=keys
+          fi
+          if [ -z "$mode" ]; then
+            echo "::error::No usable credentials: set PREVIEW_DEPLOY_TOKEN (valid fine-grained PAT) or SITE_DEPLOY_KEY (write-enabled deploy key on corvec/roll-a-d6-basic)."
+            exit 1
+          fi
+          echo "AUTH_MODE=$mode" >> "$GITHUB_ENV"
+
+      - name: Check out demo site (PAT)
+        if: env.AUTH_MODE == 'pat'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/roll-a-d6-basic
+          ref: gh-pages
+          token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+          # Full history so per-directory last-update timestamps are accurate
+          fetch-depth: 0
+
+      - name: Check out demo site (deploy key)
+        if: env.AUTH_MODE == 'keys'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/roll-a-d6-basic
+          ref: gh-pages
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
+          # Full history so per-directory last-update timestamps are accurate
+          fetch-depth: 0
+
+      - name: Prune old previews
+        shell: bash
+        run: |
+          max_age_days="${{ github.event.inputs.max_age_days || '30' }}"
+          cutoff=$(( $(date +%s) - max_age_days * 86400 ))
+          removed=0
+          for dir in */; do
+            dir="${dir%/}"
+            # Preview directories are short/full commit SHAs; skip everything else
+            [[ "$dir" =~ ^[0-9a-f]{7,40}$ ]] || continue
+            last=$(git log -1 --format=%ct -- "$dir")
+            if [[ -n "$last" && "$last" -lt "$cutoff" ]]; then
+              echo "Removing preview $dir (last updated $(date -u -d "@$last" +%F))"
+              git rm -rq "$dir"
+              removed=$((removed + 1))
+            fi
+          done
+          if [[ "$removed" -gt 0 ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Prune $removed preview deploy(s) older than $max_age_days days"
+            git push
+          else
+            echo "Nothing to prune"
+          fi

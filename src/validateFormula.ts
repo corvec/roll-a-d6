@@ -2,14 +2,13 @@
  * Operations on this file are run on formulas prior to their conversion to RPN
  */
 
-import tokenize, { isOperator, isValidToken, isValue, isVariable } from './formulaTokenizer.mjs';
+import tokenize, { isOperator, isValidToken, isValue, isVariable } from './formulaTokenizer.js';
 
-const enableLogging = false;
-const log = msg => { if (enableLogging) console.log(msg) };
+const enableLogging: boolean = false;
+const log = (msg: string) => { if (enableLogging) console.log(msg); };
 
 /**
  * Ensure parentheses are balanced
- * @function validateParentheses
  * @example
  * // returns false
  * validateParentheses('())(')
@@ -18,11 +17,10 @@ const log = msg => { if (enableLogging) console.log(msg) };
  * // return true
  * validateParentheses('()')
  *
- * @param {string} clause
- * @returns {boolean} True if valid
+ * @returns True if valid
  */
-export const validateParentheses = clause =>
-  Array.from(clause).reduce((depth, currentChar) => {
+export const validateParentheses = (clause: string): boolean =>
+  Array.from(clause).reduce((depth: number, currentChar) => {
     switch (currentChar) {
       case '(':
         return depth + 1;
@@ -39,29 +37,26 @@ export const validateParentheses = clause =>
 /**
  * confirm that brackets are only used to contain numbers, e.g., [5]
  *
- * @param {string} clause
- * @returns {boolean} True if valid
+ * @returns True if valid
  */
-const validateBrackets = (clause) => {
+const validateBrackets = (clause: string): boolean => {
   const brackets = clause.match(/\[[^[\]]*]/g);
   return brackets === null || brackets.every(bracket => /^\[\d+]$/.test(bracket));
 };
 
 /**
  * confirm that operators and values alternate
- * @function validateAlternatingTokenType
- * @param {string[]} tokens
- * @returns {boolean} True if valid
+ * @returns True if valid
  */
-const validateAlternatingTokenType = tokens => tokens.reduce(
-  (accum, token, i) => {
+const validateAlternatingTokenType = (tokens: string[]): boolean => tokens.reduce(
+  (accum: boolean, token, i) => {
     if (!accum) {
       return false;
     }
     if (i === 0) {
       const result = isValue(token) || token === '(';
       if (!result) {
-        log(`clause did not start with ( or value, but with ${token}`)
+        log(`clause did not start with ( or value, but with ${token}`);
       }
       return result;
     }
@@ -69,7 +64,7 @@ const validateAlternatingTokenType = tokens => tokens.reduce(
       log(`last token in the clause was ${token}`);
       return false;
     }
-    const lastToken = tokens[i-1];
+    const lastToken = tokens[i - 1];
     if (token === '=') {
       const result = (i === 1 && isVariable(lastToken));
       if (!result) {
@@ -93,20 +88,19 @@ const validateAlternatingTokenType = tokens => tokens.reduce(
     }
     return false;
   },
-    true
+  true,
 );
 
 /**
  * Confirm that the clause matches the appropriate format and that the other validators pass
- * @function validateClause
- * @param {string} clause
- * @param {number|string} i clause descriptor
- * @returns {string[]} Empty if valid. Array of found issues.
+ * @param clause
+ * @param i clause descriptor
+ * @returns Empty if valid. Array of found issues.
  */
-export const validateClause = (clause, i) => {
-  const result = [];
+export const validateClause = (clause: string, i?: number | string): string[] => {
+  const result: string[] = [];
 
-  // TODO: source valid strings from formulaTokenizer.js or some other shared place instead
+  // TODO: source valid strings from formulaTokenizer.ts or some other shared place instead
   if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.])+$/)) {
     log(`${clause} did not match validation regex`);
     result.push(`Invalid characters in clause ${i}`);
@@ -132,7 +126,7 @@ export const validateClause = (clause, i) => {
 
     if (enableLogging) {
       invalidTokens.forEach(
-        token => console.log(`Invalid token: ${token}`)
+        token => console.log(`Invalid token: ${token}`),
       );
     }
     return result;
@@ -146,40 +140,31 @@ export const validateClause = (clause, i) => {
 
 /**
  * Ensure that assignment only happens at the beginning of a clause
- * @function clauseHasMislocatedAssignmentOperator
- * @param {string[]} clause List of tokens
- * @returns {boolean} True if valid
+ * @param clause List of tokens
+ * @returns True if the clause has a mislocated assignment operator
  */
-export const clauseHasMislocatedAssignmentOperator = clause => clause.some(
-    (token, i) => token === '='
-        && (clause.length < 3
-            || i !== 1
-            || !clause[0].match(/^[A-Za-z]\w*(@[A-Za-z]\w+)?$/))
+export const clauseHasMislocatedAssignmentOperator = (clause: string[]): boolean => clause.some(
+  (token, i) => token === '='
+    && (clause.length < 3
+      || i !== 1
+      || !clause[0].match(/^[A-Za-z]\w*(@[A-Za-z]\w+)?$/)),
 );
 
 /**
  * Perform validation for the entire formula (an unconverted string) one clause at a time
- * @function validateFormula
- * @param {string} formula
- * @returns {string[]} Empty if valid. Array of issues found.
+ * @returns Empty if valid. Array of issues found.
  */
-export const validateFormula = (formula) => {
-  if (typeof formula !== "string") {
-      throw new Error('validateFormula() called with an invalid formula (i.e., of a non-string type)')
+export const validateFormula = (formula: string): string[] => {
+  if (typeof formula !== 'string') {
+    throw new Error('validateFormula() called with an invalid formula (i.e., of a non-string type)');
   }
   const clauses = formula.split(',');
-  const result = clauses.reduce(
-    (accum, clause, i) => [
-      ...accum,
-      ...validateClause(clause, i + 1),
-    ],
-    []
-  );
+  const result = clauses.flatMap((clause, i) => validateClause(clause, i + 1));
   if (!enableLogging) {
     return result;
   }
   if (!result) {
-    clauses.filter(clause => !validateClause(clause))
+    clauses.filter(clause => validateClause(clause).length > 0)
       .forEach(clause => log(`invalid clause: ${clause}`));
   }
   return result;

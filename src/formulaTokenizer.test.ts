@@ -1,16 +1,17 @@
 import tokenize, {
   getTargetCollection,
+  isRoll,
   isVariable,
   isVariableInstance,
   splitTokenList,
   stripPrefix,
   stripSuffix,
-} from './formulaTokenizer';
+} from './formulaTokenizer.js';
 
 it('tokenizes a fairly complex statement', () => {
   const result = tokenize('2*(1d20+8>ac||1d20==20->1d6+10)');
   expect(result).toEqual([
-    '2', '*', '(', '1d20', '+', '8', '>', 'ac', '||', '1d20', '==', '20', '->', '1d6', '+', '10', ')'
+    '2', '*', '(', '1d20', '+', '8', '>', 'ac', '||', '1d20', '==', '20', '->', '1d6', '+', '10', ')',
   ]);
 });
 
@@ -44,7 +45,7 @@ it('tokenizes subtraction of negative numbers', () => {
 
 it('tokenizes ac@defender', () => {
   const result = tokenize('1d20+5>=ac@defender');
-  expect(result).toEqual(['1d20','+','5','>=','ac@defender']);
+  expect(result).toEqual(['1d20', '+', '5', '>=', 'ac@defender']);
 });
 
 it('tokenizes assignment', () => {
@@ -121,6 +122,22 @@ it('stripPrefix(stripSuffix strips ^, $ and [1]@Defender', () => {
   expect(stripPrefix(stripSuffix('$a@Defender'))).toEqual('a');
   expect(stripPrefix(stripSuffix('a@Defender'))).toEqual('a');
   expect(stripPrefix(stripSuffix('a'))).toEqual('a');
+});
+
+it('stripSuffix strips lowercase collection targets', () => {
+  expect(stripSuffix('a@defender')).toEqual('a');
+  expect(stripSuffix('a[1]@defender')).toEqual('a');
+  expect(stripPrefix(stripSuffix('$a@defender'))).toEqual('a');
+});
+
+it('isRoll matches only complete roll tokens', () => {
+  expect(isRoll('3d6')).toBe(true);
+  expect(isRoll('10d20')).toBe(true);
+  expect(isRoll('1d1000')).toBe(true);
+  expect(isRoll('d6')).toBe(false);
+  expect(isRoll('2d6x')).toBe(false);
+  expect(isRoll('x2d6')).toBe(false);
+  expect(isRoll('3d')).toBe(false);
 });
 
 it('getTargetCollection(ac@Defender) returns Defender', () => {

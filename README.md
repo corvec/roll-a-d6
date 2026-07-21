@@ -16,7 +16,9 @@ console.log(roll.result.join(', '));
 ```
 
 The components of the dice roller include the validator, tokenizer, parser, RPN converter, and evaluator.
-For more information, check out the API docs [here](./jsdoc/roll-a-d6/0.2.2/global.html).
+
+The library is written in TypeScript and ships with its own type declarations, alongside both ESM
+and CommonJS builds. No runtime dependencies are required.
 
 An example of a more sophisticated dice roll that this package supports:
 
@@ -37,8 +39,21 @@ const macros = {
 const roll = d6.rollFormula('ac@Defender=?,canYouSneakAttack=1,dmgDice=shortSword,(atk[0]+atk[1])>0->(atk[0]+atk[1]+sneakAttackIfPossible);0', macros);
 //  now I know the attacker's AC is 15
 const foundResult = roll.result.find(({ minValue, maxValue }) => minValue <= 15 && !(maxValue < 15));
-console.log(foundResult[0]);
+console.log(foundResult.result[0]);
 ```
+
+### Options and errors
+
+`rollFormula(formula, macros, targetedCollections, options)` accepts an optional fourth argument:
+
+* `rng` — a function returning a number in `[0, 1)`, used as the source of randomness for dice
+  rolls. Defaults to `Math.random`. Inject a seeded generator for deterministic, reproducible rolls.
+* `maxRange` — when the formula contains an uncertain value (`?`), input values from `0` up to
+  (but not including) `maxRange` are probed to build the result ranges. Defaults to `40`.
+
+`rollFormula` throws `ErrorTypes.ValidationError` (with an `issues` array) if the formula fails
+validation, and `ErrorTypes.UnknownVariablesError` (with an `unknownVariables` array) if the
+formula references variables that are not assigned and not available as macros.
 
 ## Roll Syntax
 

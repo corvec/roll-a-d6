@@ -1,0 +1,176 @@
+name: Preview Deploy
+
+# Builds Engineer's Dice Roller against this branch's version of roll-a-d6 and
+# publishes it to a temp URL: https://demo.dicerollr.com/<short-sha>/
+#
+# demo.dicerollr.com is the GitHub Pages site of corvec/roll-a-d6-basic; each
+# preview lives in a subdirectory of its gh-pages branch, alongside the
+# production deploy at the root.
+#
+# Credentials (repository secrets on corvec/roll-a-d6) - either style works:
+#   * PREVIEW_DEPLOY_TOKEN - a fine-grained PAT with Contents: Read on
+#     corvec/engineers-dice-roller and Contents: Read and write on
+#     corvec/roll-a-d6-basic. Preferred when set AND usable; otherwise the
+#     workflow falls back to the deploy keys.
+#   * APP_DEPLOY_KEY + SITE_DEPLOY_KEY - private halves of two per-repo SSH
+#     deploy keys: a read-only key on engineers-dice-roller and a
+#     write-enabled key on roll-a-d6-basic. (GitHub does not allow one deploy
+#     key on multiple repos.)
+#
+# Trigger by adding the `deploy-preview` label to a PR (subsequent pushes then
+# redeploy automatically), or manually via workflow_dispatch.
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  workflow_dispatch:
+
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'deploy-preview')
+    runs-on: ubuntu-latest
+    env:
+      HAS_PAT: ${{ secrets.PREVIEW_DEPLOY_TOKEN != '' }}
+      HAS_DEPLOY_KEYS: ${{ secrets.APP_DEPLOY_KEY != '' && secrets.SITE_DEPLOY_KEY != '' }}
+    steps:
+      - name: Determine deploy credentials
+        env:
+          TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+        run: |
+          mode=""
+          if [ "$HAS_PAT" = "true" ]; then
+            # '|| true' tolerates a non-header-safe secret (e.g., a multi-line
+            # SSH key mistakenly stored as the PAT breaks curl itself)
+            status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+              https://api.github.com/repos/corvec/engineers-dice-roller || true)
+            if [ "$status" = "200" ]; then
+              mode=pat
+            else
+              echo "::warning::PREVIEW_DEPLOY_TOKEN is set but cannot read corvec/engineers-dice-roller (HTTP $status); ignoring it. Delete the secret or replace it with a valid fine-grained PAT."
+            fi
+          fi
+          if [ -z "$mode" ] && [ "$HAS_DEPLOY_KEYS" = "true" ]; then
+            mode=keys
+          fi
+          if [ -z "$mode" ]; then
+            echo "::error::No usable deploy credentials. Either set PREVIEW_DEPLOY_TOKEN (fine-grained PAT: Contents Read on corvec/engineers-dice-roller, Contents Read+write on corvec/roll-a-d6-basic), or set BOTH APP_DEPLOY_KEY (private key of a read-only deploy key on engineers-dice-roller) and SITE_DEPLOY_KEY (private key of a write-enabled deploy key on roll-a-d6-basic) as repository secrets on corvec/roll-a-d6."
+            exit 1
+          fi
+          echo "Using auth mode: $mode"
+          echo "AUTH_MODE=$mode" >> "$GITHUB_ENV"
+
+      - name: Check out roll-a-d6
+        uses: actions/checkout@v4
+        with:
+          path: roll-a-d6
+
+      - name: Use Node 22 for the library build
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Build and pack roll-a-d6
+        id: pack
+        working-directory: roll-a-d6
+        run: |
+          npm ci
+          npm run build
+          echo "tarball=$(npm pack --silent)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Compat branch for the post-TypeScript roll-a-d6 API; switch to the
+      # default branch once the compat changes are merged there. The repo is
+      # private, so the default GITHUB_TOKEN (scoped to roll-a-d6) cannot
+      # read it.
+      - name: Check out engineers-dice-roller (PAT)
+        if: env.AUTH_MODE == 'pat'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/engineers-dice-roller
+          ref: claude/roll-a-d6-0.4-compat
+          path: app
+          token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+
+      - name: Check out engineers-dice-roller (deploy key)
+        if: env.AUTH_MODE == 'keys'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/engineers-dice-roller
+          ref: claude/roll-a-d6-0.4-compat
+          path: app
+          ssh-key: ${{ secrets.APP_DEPLOY_KEY }}
+
+      - name: Use Node 16 for the CRA build
+        # react-scripts 3.x (webpack 4) fails on Node 17+ due to the OpenSSL 3
+        # digest change; drop this step once the app's toolchain is modernized.
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16.x
+
+      - name: Build the app against the packed library
+        working-directory: app
+        env:
+          PUBLIC_URL: /${{ steps.pack.outputs.sha }}
+          # CRA treats lint warnings as build failures when CI=true
+          CI: 'false'
+        run: |
+          # Installing the tarball in the same command as the rest of the
+          # dependencies replaces the package.json git spec for roll-a-d6, so
+          # npm never needs to clone it from GitHub.
+          npm install --no-audit --no-fund "$GITHUB_WORKSPACE/roll-a-d6/${{ steps.pack.outputs.tarball }}"
+          npm run build
+
+      - name: Check out demo site (PAT)
+        if: env.AUTH_MODE == 'pat'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/roll-a-d6-basic
+          ref: gh-pages
+          path: site
+          token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+
+      - name: Check out demo site (deploy key)
+        if: env.AUTH_MODE == 'keys'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/roll-a-d6-basic
+          ref: gh-pages
+          path: site
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
+
+      - name: Publish preview
+        shell: bash
+        run: |
+          sha="${{ steps.pack.outputs.sha }}"
+          rm -rf "site/$sha"
+          mkdir -p "site/$sha"
+          cp -r app/build/. "site/$sha/"
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$sha"
+          if git diff --cached --quiet; then
+            echo "Preview unchanged; nothing to push"
+          else
+            git commit -m "Preview deploy $sha from roll-a-d6 ${{ github.event_name == 'pull_request' && format('PR #{0}', github.event.pull_request.number) || github.ref_name }}"
+            git push
+          fi
+          echo "### Preview deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://demo.dicerollr.com/$sha/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment preview URL on the PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "🎲 Preview of Engineer's Dice Roller built with this branch: https://demo.dicerollr.com/${{ steps.pack.outputs.sha }}/"

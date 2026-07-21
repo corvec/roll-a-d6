@@ -1,4 +1,4 @@
-import validateFormula, { validateParentheses } from './validateFormula';
+import validateFormula, { validateParentheses } from './validateFormula.js';
 
 it('validates parentheses', () => {
   expect(validateParentheses('()()()()')).toEqual(true);
@@ -51,6 +51,10 @@ it('marks some invalid expressions appropriately', () => {
   expect(validateFormula('Dex]1[')).toContainEqual(expect.any(String));
   expect(validateFormula('Dex[1+1]')).toContainEqual(expect.any(String));
   expect(validateFormula('Dex[]')).toContainEqual(expect.any(String));
+});
+
+it('marks a token that merely contains a roll as invalid', () => {
+  expect(validateFormula('2d6x')).toContainEqual(expect.any(String));
 });
 
 it('marks an instance operator without a preceding variable name as invalid', () => {
