@@ -17,13 +17,26 @@ on:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    env:
+      HAS_PAT: ${{ secrets.PREVIEW_DEPLOY_TOKEN != '' }}
     steps:
-      - name: Check out demo site (gh-pages of roll-a-d6-basic)
+      - name: Check out demo site (PAT)
+        if: env.HAS_PAT == 'true'
         uses: actions/checkout@v4
         with:
           repository: corvec/roll-a-d6-basic
           ref: gh-pages
           token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+          # Full history so per-directory last-update timestamps are accurate
+          fetch-depth: 0
+
+      - name: Check out demo site (deploy key)
+        if: env.HAS_PAT != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: corvec/roll-a-d6-basic
+          ref: gh-pages
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
           # Full history so per-directory last-update timestamps are accurate
           fetch-depth: 0
 
