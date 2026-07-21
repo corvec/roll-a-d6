@@ -52,8 +52,10 @@ jobs:
         env:
           TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
         run: |
+          # '|| true' keeps the clean error message below even when the secret
+          # is not header-safe (e.g., a multi-line SSH key breaks curl itself)
           status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
-            https://api.github.com/repos/corvec/engineers-dice-roller)
+            https://api.github.com/repos/corvec/engineers-dice-roller || true)
           if [ "$status" != "200" ]; then
             echo "::error::PREVIEW_DEPLOY_TOKEN cannot read corvec/engineers-dice-roller (HTTP $status). Check that the token is a valid fine-grained PAT (not an SSH deploy key, not expired) granting Contents: Read on that repo and Contents: Read and write on corvec/roll-a-d6-basic."
             exit 1
