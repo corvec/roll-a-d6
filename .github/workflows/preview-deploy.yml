@@ -29,6 +29,21 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'deploy-preview')
     runs-on: ubuntu-latest
     steps:
+      - name: Fail fast if PREVIEW_DEPLOY_TOKEN is unusable
+        env:
+          TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::PREVIEW_DEPLOY_TOKEN is empty. Add it as a Repository secret (Settings > Secrets and variables > Actions) on corvec/roll-a-d6."
+            exit 1
+          fi
+          status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+            https://api.github.com/repos/corvec/engineers-dice-roller)
+          if [ "$status" != "200" ]; then
+            echo "::error::PREVIEW_DEPLOY_TOKEN cannot read corvec/engineers-dice-roller (HTTP $status). Check that the token is valid (not expired/revoked) and grants Contents: Read on that repo, plus Contents: Read and write on corvec/roll-a-d6-basic."
+            exit 1
+          fi
+
       - name: Check out roll-a-d6
         uses: actions/checkout@v4
         with:
