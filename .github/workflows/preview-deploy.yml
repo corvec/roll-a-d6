@@ -56,6 +56,10 @@ jobs:
           # default branch once the compat changes are merged there.
           ref: claude/roll-a-d6-0.4-compat
           path: app
+          # The repo is private, so the default GITHUB_TOKEN (scoped to
+          # roll-a-d6 only) cannot read it. PREVIEW_DEPLOY_TOKEN must have
+          # contents: read on corvec/engineers-dice-roller.
+          token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
 
       - name: Use Node 16 for the CRA build
         # react-scripts 3.x (webpack 4) fails on Node 17+ due to the OpenSSL 3
