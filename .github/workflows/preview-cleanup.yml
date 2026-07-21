@@ -19,9 +19,33 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_PAT: ${{ secrets.PREVIEW_DEPLOY_TOKEN != '' }}
+      HAS_SITE_KEY: ${{ secrets.SITE_DEPLOY_KEY != '' }}
     steps:
+      - name: Determine deploy credentials
+        env:
+          TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
+        run: |
+          mode=""
+          if [ "$HAS_PAT" = "true" ]; then
+            status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+              https://api.github.com/repos/corvec/roll-a-d6-basic || true)
+            if [ "$status" = "200" ]; then
+              mode=pat
+            else
+              echo "::warning::PREVIEW_DEPLOY_TOKEN is set but cannot read corvec/roll-a-d6-basic (HTTP $status); ignoring it."
+            fi
+          fi
+          if [ -z "$mode" ] && [ "$HAS_SITE_KEY" = "true" ]; then
+            mode=keys
+          fi
+          if [ -z "$mode" ]; then
+            echo "::error::No usable credentials: set PREVIEW_DEPLOY_TOKEN (valid fine-grained PAT) or SITE_DEPLOY_KEY (write-enabled deploy key on corvec/roll-a-d6-basic)."
+            exit 1
+          fi
+          echo "AUTH_MODE=$mode" >> "$GITHUB_ENV"
+
       - name: Check out demo site (PAT)
-        if: env.HAS_PAT == 'true'
+        if: env.AUTH_MODE == 'pat'
         uses: actions/checkout@v4
         with:
           repository: corvec/roll-a-d6-basic
@@ -31,7 +55,7 @@ jobs:
           fetch-depth: 0
 
       - name: Check out demo site (deploy key)
-        if: env.HAS_PAT != 'true'
+        if: env.AUTH_MODE == 'keys'
         uses: actions/checkout@v4
         with:
           repository: corvec/roll-a-d6-basic
