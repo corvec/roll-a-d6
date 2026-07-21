@@ -10,7 +10,8 @@ name: Preview Deploy
 # Credentials (repository secrets on corvec/roll-a-d6) - either style works:
 #   * PREVIEW_DEPLOY_TOKEN - a fine-grained PAT with Contents: Read on
 #     corvec/engineers-dice-roller and Contents: Read and write on
-#     corvec/roll-a-d6-basic. Takes precedence when set.
+#     corvec/roll-a-d6-basic. Preferred when set AND usable; otherwise the
+#     workflow falls back to the deploy keys.
 #   * APP_DEPLOY_KEY + SITE_DEPLOY_KEY - private halves of two per-repo SSH
 #     deploy keys: a read-only key on engineers-dice-roller and a
 #     write-enabled key on roll-a-d6-basic. (GitHub does not allow one deploy
@@ -40,26 +41,31 @@ jobs:
       HAS_PAT: ${{ secrets.PREVIEW_DEPLOY_TOKEN != '' }}
       HAS_DEPLOY_KEYS: ${{ secrets.APP_DEPLOY_KEY != '' && secrets.SITE_DEPLOY_KEY != '' }}
     steps:
-      - name: Check deploy credentials
-        run: |
-          if [ "$HAS_PAT" != "true" ] && [ "$HAS_DEPLOY_KEYS" != "true" ]; then
-            echo "::error::No usable deploy credentials. Either set PREVIEW_DEPLOY_TOKEN (fine-grained PAT: Contents Read on corvec/engineers-dice-roller, Contents Read+write on corvec/roll-a-d6-basic), or set BOTH APP_DEPLOY_KEY (private key of a read-only deploy key on engineers-dice-roller) and SITE_DEPLOY_KEY (private key of a write-enabled deploy key on roll-a-d6-basic) as repository secrets on corvec/roll-a-d6."
-            exit 1
-          fi
-
-      - name: Verify PREVIEW_DEPLOY_TOKEN access
-        if: env.HAS_PAT == 'true'
+      - name: Determine deploy credentials
         env:
           TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
         run: |
-          # '|| true' keeps the clean error message below even when the secret
-          # is not header-safe (e.g., a multi-line SSH key breaks curl itself)
-          status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
-            https://api.github.com/repos/corvec/engineers-dice-roller || true)
-          if [ "$status" != "200" ]; then
-            echo "::error::PREVIEW_DEPLOY_TOKEN cannot read corvec/engineers-dice-roller (HTTP $status). Check that the token is a valid fine-grained PAT (not an SSH deploy key, not expired) granting Contents: Read on that repo and Contents: Read and write on corvec/roll-a-d6-basic."
+          mode=""
+          if [ "$HAS_PAT" = "true" ]; then
+            # '|| true' tolerates a non-header-safe secret (e.g., a multi-line
+            # SSH key mistakenly stored as the PAT breaks curl itself)
+            status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+              https://api.github.com/repos/corvec/engineers-dice-roller || true)
+            if [ "$status" = "200" ]; then
+              mode=pat
+            else
+              echo "::warning::PREVIEW_DEPLOY_TOKEN is set but cannot read corvec/engineers-dice-roller (HTTP $status); ignoring it. Delete the secret or replace it with a valid fine-grained PAT."
+            fi
+          fi
+          if [ -z "$mode" ] && [ "$HAS_DEPLOY_KEYS" = "true" ]; then
+            mode=keys
+          fi
+          if [ -z "$mode" ]; then
+            echo "::error::No usable deploy credentials. Either set PREVIEW_DEPLOY_TOKEN (fine-grained PAT: Contents Read on corvec/engineers-dice-roller, Contents Read+write on corvec/roll-a-d6-basic), or set BOTH APP_DEPLOY_KEY (private key of a read-only deploy key on engineers-dice-roller) and SITE_DEPLOY_KEY (private key of a write-enabled deploy key on roll-a-d6-basic) as repository secrets on corvec/roll-a-d6."
             exit 1
           fi
+          echo "Using auth mode: $mode"
+          echo "AUTH_MODE=$mode" >> "$GITHUB_ENV"
 
       - name: Check out roll-a-d6
         uses: actions/checkout@v4
@@ -85,7 +91,7 @@ jobs:
       # private, so the default GITHUB_TOKEN (scoped to roll-a-d6) cannot
       # read it.
       - name: Check out engineers-dice-roller (PAT)
-        if: env.HAS_PAT == 'true'
+        if: env.AUTH_MODE == 'pat'
         uses: actions/checkout@v4
         with:
           repository: corvec/engineers-dice-roller
@@ -94,7 +100,7 @@ jobs:
           token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
 
       - name: Check out engineers-dice-roller (deploy key)
-        if: env.HAS_PAT != 'true'
+        if: env.AUTH_MODE == 'keys'
         uses: actions/checkout@v4
         with:
           repository: corvec/engineers-dice-roller
@@ -123,7 +129,7 @@ jobs:
           npm run build
 
       - name: Check out demo site (PAT)
-        if: env.HAS_PAT == 'true'
+        if: env.AUTH_MODE == 'pat'
         uses: actions/checkout@v4
         with:
           repository: corvec/roll-a-d6-basic
@@ -132,7 +138,7 @@ jobs:
           token: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
 
       - name: Check out demo site (deploy key)
-        if: env.HAS_PAT != 'true'
+        if: env.AUTH_MODE == 'keys'
         uses: actions/checkout@v4
         with:
           repository: corvec/roll-a-d6-basic
