@@ -14,6 +14,7 @@ import {
   variableTargetsCollection,
 } from './formulaTokenizer.js';
 import { objectMakerReduceHelper, peek } from './helpers.js';
+import { lookUpEntry } from './lookupTables.js';
 import type {
   EvaluationMetadata,
   EvaluationResult,
@@ -22,6 +23,7 @@ import type {
   ResultEntry,
   RollLog,
   RPNTokenList,
+  TableMap,
 } from './types.js';
 
 // TODO: [Tech Debt] Refactor this module to not mutate savedMacroValues or evaluationMetadata
@@ -188,13 +190,14 @@ const rollSpread = (token: string, evaluationMetadata: EvaluationMetadata): numb
 };
 
 /**
- * Apply a function-call token (e.g., 'max:3') to the values its arguments
- * left on the stack.
+ * Apply a function-call token (e.g., 'max:3' or 'encounterTable:1') to the
+ * values its arguments left on the stack.
  */
 const evaluateFunction = (
-  { stack, token }: {
+  { stack, token, evaluationMetadata }: {
     stack: StackValue[];
     token: string;
+    evaluationMetadata: EvaluationMetadata;
   },
 ): StackValue[] => {
   const { name, argCount } = parseFunctionCallToken(token);
@@ -207,7 +210,21 @@ const evaluateFunction = (
     log(`${name}(${args.join(', ')}) => ${value}`);
     return [...stack.slice(0, -argCount), value];
   }
-  throw new Error(`Unknown function "${name}". Supported functions are max() and min().`);
+  const table = evaluationMetadata.tables[name];
+  if (table) {
+    if (argCount !== 1) {
+      throw new Error(`Lookup table "${name}" takes exactly one argument (got ${argCount}).`);
+    }
+    const selector = Number(peek(stack));
+    const entry = lookUpEntry(table, name, selector);
+    // Formula rows are evaluated lazily: only the selected row's formula runs
+    const value = entry.text !== undefined
+      ? entry.text
+      : evaluateExpression(entry.formula as RPNTokenList, evaluationMetadata);
+    log(`${name}(${selector}) => ${value}`);
+    return [...stack.slice(0, -1), value];
+  }
+  throw new Error(`Unknown function or lookup table "${name}". Built-in functions are max() and min().`);
 };
 
 const isBoolean = (token: StackValue): boolean => [true, false, 'true', 'false'].includes(token as boolean | string);
@@ -465,7 +482,7 @@ const evaluateExpression = (expression: RPNTokenList, evaluationMetadata: Evalua
     } else if (isSpreadRoll(token)) {
       return [...stack, ...rollSpread(token.slice(3), evaluationMetadata)];
     } else if (isFunctionCallToken(token)) {
-      return evaluateFunction({ stack, token });
+      return evaluateFunction({ stack, token, evaluationMetadata });
     } else if (isSideEffectVariable(token)) {
       return [...stack, token];
     } else if (isSideEffectOperator(token)) {
@@ -485,20 +502,23 @@ const evaluateExpression = (expression: RPNTokenList, evaluationMetadata: Evalua
  * Calculate the result of tokenized RPN expressions
  * @param p.expressions Expressions to evaluate
  * @param p.macros Macros referenced by these expressions / by other macros
+ * @param p.tables Lookup tables available via call syntax (e.g., encounterTable(1d6))
  * @param p.rolls Saved rolls (by number of sides), in case of reevaluation
  * @param p.rng Source of randomness for new dice rolls; defaults to Math.random.
  *              Inject a seeded generator for deterministic results.
  */
 const evaluateFormula = (
-  { expressions, macros, rolls = {}, rng = Math.random }: {
+  { expressions, macros, tables = {}, rolls = {}, rng = Math.random }: {
     expressions: RPNTokenList[];
     macros: MacroMap;
+    tables?: TableMap;
     rolls?: RollLog;
     rng?: RandomNumberGenerator;
   },
 ): EvaluationResult => {
   const evaluationMetadata: EvaluationMetadata = {
     macros,
+    tables,
     rng,
     rolls,
     rollIndex: getInitialRollIndex(Object.keys(rolls)),

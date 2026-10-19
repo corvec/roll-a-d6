@@ -3,6 +3,7 @@ import evaluateFormula from './evaluateFormula.js';
 import tokenize, * as formulaTokenizer from './formulaTokenizer.js';
 import * as formulaParser from './formulaParser/index.js';
 import * as helpers from './helpers.js';
+import * as lookupTables from './lookupTables.js';
 import rollFormula, * as formulaRoller from './rollFormula.js';
 import rpnConverter from './rpnConverter.js';
 import validateFormula, * as formulaValidator from './validateFormula.js';
@@ -15,6 +16,7 @@ export {
   formulaRoller,
   formulaValidator,
   helpers,
+  lookupTables,
   rollFormula,
   rpnConverter,
   tokenize,
