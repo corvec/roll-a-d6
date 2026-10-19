@@ -45,9 +45,10 @@ export const isNumber = (token: string | number): boolean =>
     && !Number.isNaN(parseInt(String(token), 10));
 
 /**
- * Is the token a roll (e.g., '3d6'), including exploding rolls (e.g., '3d6!')?
+ * Is the token a roll (e.g., '3d6'), an exploding roll (e.g., '3d6!'),
+ * or a fudge/Fate roll (e.g., '4dF')?
  */
-export const isRoll = (token: string): boolean => /^\d+d\d+!?$/.test(token);
+export const isRoll = (token: string): boolean => /^\d+d(\d+!?|F)$/.test(token);
 
 /**
  * Is the token a grouping operator (either '(' or ')')?

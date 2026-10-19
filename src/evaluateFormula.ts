@@ -80,10 +80,16 @@ const evaluate = (token: string, v1: StackValue, v2: StackValue): ResultEntry =>
 
 
 /**
+ * Number of sides on a die: a positive integer, or 'F' for a fudge/Fate die
+ * (which rolls -1, 0, or +1).
+ */
+type DieSides = number | 'F';
+
+/**
  * If `rolls` was provided (and thus, we have a `rollIndex`), then return the next roll.
  * Otherwise, generate the next roll and save it into rolls.
  */
-const rollAD = (sides: number, evaluationMetadata: EvaluationMetadata): number => {
+const rollAD = (sides: DieSides, evaluationMetadata: EvaluationMetadata): number => {
   if (rollIsSaved(sides, evaluationMetadata)) {
     const rollResult = evaluationMetadata.rolls[sides][evaluationMetadata.rollIndex[sides]];
     evaluationMetadata.rollIndex[sides] += 1;
@@ -93,15 +99,17 @@ const rollAD = (sides: number, evaluationMetadata: EvaluationMetadata): number =
   }
 };
 
-const getInitialRollIndex = (sides: number[]): Record<number, number> =>
-  sides.map((side): [string, number] => [`${side}`, 0]).reduce(objectMakerReduceHelper, {});
+const getInitialRollIndex = (sides: string[]): Record<string | number, number> =>
+  sides.map((side): [string, number] => [side, 0]).reduce(objectMakerReduceHelper, {});
 
-const rollIsSaved = (sides: number, evaluationMetadata: EvaluationMetadata): boolean =>
+const rollIsSaved = (sides: DieSides, evaluationMetadata: EvaluationMetadata): boolean =>
   typeof evaluationMetadata.rollIndex[sides] === 'number'
     && evaluationMetadata.rollIndex[sides] < evaluationMetadata.rolls[sides].length;
 
-const addRoll = (sides: number, evaluationMetadata: EvaluationMetadata): number => {
-  const rollResult = Math.floor(sides * evaluationMetadata.rng()) + 1;
+const addRoll = (sides: DieSides, evaluationMetadata: EvaluationMetadata): number => {
+  const rollResult = sides === 'F'
+    ? Math.floor(3 * evaluationMetadata.rng()) - 1
+    : Math.floor(sides * evaluationMetadata.rng()) + 1;
   if (!evaluationMetadata.rolls.hasOwnProperty(sides)) {
     evaluationMetadata.rolls[sides] = [];
   }
@@ -111,19 +119,24 @@ const addRoll = (sides: number, evaluationMetadata: EvaluationMetadata): number 
 
 interface ParsedRoll {
   count: number;
-  sides: number;
+  sides: DieSides;
   exploding: boolean;
 }
 
 /**
  * @example // returns { count: 3, sides: 6, exploding: true }
  * parseRollToken('3d6!')
+ * @example // returns { count: 4, sides: 'F', exploding: false }
+ * parseRollToken('4dF')
  */
-const parseRollToken = (token: string): ParsedRoll => ({
-  count: parseInt(token.slice(0, token.indexOf('d')), 10) || 1,
-  sides: parseInt(token.slice(1 + token.indexOf('d')), 10),
-  exploding: token.endsWith('!'),
-});
+const parseRollToken = (token: string): ParsedRoll => {
+  const sidesPart = token.slice(1 + token.indexOf('d'));
+  return {
+    count: parseInt(token.slice(0, token.indexOf('d')), 10) || 1,
+    sides: sidesPart.startsWith('F') ? 'F' : parseInt(sidesPart, 10),
+    exploding: token.endsWith('!'),
+  };
+};
 
 /**
  * Cap on the number of rolls a single exploding die may make, so that an
@@ -138,12 +151,12 @@ const MAX_EXPLOSION_DEPTH = 100;
  * rolls are added together.
  */
 const rollOneDie = (
-  { sides, exploding }: { sides: number; exploding: boolean },
+  { sides, exploding }: { sides: DieSides; exploding: boolean },
   evaluationMetadata: EvaluationMetadata,
 ): number => {
   let rollValue = rollAD(sides, evaluationMetadata);
   let total = rollValue;
-  if (exploding && sides > 1) {
+  if (exploding && typeof sides === 'number' && sides > 1) {
     let rollsMade = 1;
     while (rollValue === sides && rollsMade < MAX_EXPLOSION_DEPTH) {
       rollValue = rollAD(sides, evaluationMetadata);
@@ -448,7 +461,7 @@ const evaluateFormula = (
     macros,
     rng,
     rolls,
-    rollIndex: getInitialRollIndex(Object.keys(rolls).map(sides => parseInt(sides, 10))),
+    rollIndex: getInitialRollIndex(Object.keys(rolls)),
     savedGlobalValues: {},
     sideEffects: {},
   };

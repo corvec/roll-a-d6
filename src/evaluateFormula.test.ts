@@ -318,3 +318,30 @@ describe('exploding dice', () => {
     expect(rolls[2]).toHaveLength(100);
   });
 });
+
+describe('fudge dice', () => {
+  it('maps the rng onto -1, 0, and +1', () => {
+    expect(evaluateFormula({ expressions: [['1dF']], macros: {}, rng: () => 0 }).result).toEqual([-1]);
+    expect(evaluateFormula({ expressions: [['1dF']], macros: {}, rng: () => 0.5 }).result).toEqual([0]);
+    expect(evaluateFormula({ expressions: [['1dF']], macros: {}, rng: () => 0.99 }).result).toEqual([1]);
+  });
+
+  it('sums multiple fudge dice and logs them under F', () => {
+    const values = [0, 0.5, 0.99, 0.99];
+    let i = 0;
+    const { result, rolls } = evaluateFormula({ expressions: [['4dF']], macros: {}, rng: () => values[i++] });
+    expect(result).toEqual([1]);
+    expect(rolls.F).toEqual(['-1(dF)', '0(dF)', '1(dF)', '1(dF)']);
+  });
+
+  it('replays saved fudge rolls without consuming the rng', () => {
+    const first = evaluateFormula({ expressions: [['4dF', '2', '+']], macros: {}, rng: () => 0 });
+    const replay = evaluateFormula({
+      expressions: [['4dF', '2', '+']],
+      macros: {},
+      rolls: first.rolls,
+      rng: () => { throw new Error('rng must not be used in replay'); },
+    });
+    expect(replay.result).toEqual(first.result);
+  });
+});

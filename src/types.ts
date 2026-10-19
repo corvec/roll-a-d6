@@ -12,9 +12,10 @@ export type RPNTokenList = string[];
 export type MacroMap = Record<string, RPNTokenList>;
 
 /**
- * Log of rolls made, keyed by number of sides, e.g., {6: ['1(d6)','5(d6)']}
+ * Log of rolls made, keyed by number of sides ('F' for fudge dice),
+ * e.g., {6: ['1(d6)','5(d6)'], F: ['-1(dF)']}
  */
-export type RollLog = Record<number, string[]>;
+export type RollLog = Record<string | number, string[]>;
 
 /** Side effects applied during an evaluation, e.g., { sneakAttack: 0 } */
 export type SideEffects = Record<string, ResultEntry>;
@@ -61,8 +62,8 @@ export interface EvaluationMetadata {
   rng: RandomNumberGenerator;
   /** Map from number of sides to saved roll results (e.g., {6: ['1(d6)','5(d6)']}) */
   rolls: RollLog;
-  /** Map from number of sides to roll index */
-  rollIndex: Record<number, number>;
+  /** Map from number of sides ('F' for fudge dice) to roll index */
+  rollIndex: Record<string | number, number>;
   /** Saved results of global macro instances */
   savedGlobalValues: Record<string, ResultEntry[]>;
   /** Applied side effects this run */

@@ -296,3 +296,15 @@ describe('exploding dice formulas', () => {
     expect(result).toEqual([8]);
   });
 });
+
+describe('fudge dice formulas', () => {
+  it('validates and rolls NdF notation', () => {
+    expect(d6.validateFormula('4dF+2')).toEqual([]);
+    expect(d6.rollFormula('4dF+2', {}, {}, { rng: () => 0 }).result).toEqual([-2]);
+    expect(d6.rollFormula('4dF+2', {}, {}, { rng: () => 0.99 }).result).toEqual([6]);
+  });
+
+  it('rejects exploding fudge dice', () => {
+    expect(d6.validateFormula('4dF!')).toContainEqual(expect.any(String));
+  });
+});
