@@ -103,7 +103,7 @@ export const validateClause = (rawClause: string, i?: number | string): string[]
   const result: string[] = [];
 
   // TODO: source valid strings from formulaTokenizer.ts or some other shared place instead
-  if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.])+$/)) {
+  if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.!])+$/)) {
     log(`${clause} did not match validation regex`);
     result.push(`Invalid characters in clause ${i}`);
   }

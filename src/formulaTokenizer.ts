@@ -45,9 +45,9 @@ export const isNumber = (token: string | number): boolean =>
     && !Number.isNaN(parseInt(String(token), 10));
 
 /**
- * Is the token a roll (e.g., '3d6')?
+ * Is the token a roll (e.g., '3d6'), including exploding rolls (e.g., '3d6!')?
  */
-export const isRoll = (token: string): boolean => /^\d+d\d+$/.test(token);
+export const isRoll = (token: string): boolean => /^\d+d\d+!?$/.test(token);
 
 /**
  * Is the token a grouping operator (either '(' or ')')?
@@ -121,7 +121,7 @@ export const splitTokenList = (tokens: string[]): string[][] => {
 /**
  * Every token MUST match this Regex.
  */
-const tokenRegex = /([\^$]?[A-Za-z]\w*(\[\d+]|{\d+})?(@[A-Za-z]\w*)?|\w+\b|[()]|[:+-]=|\.\.\.|->|#[+*&|]|[+*/,;]|[<>=]{1,2}|[|]{2}|&&|\B-\d+|-|\?)/g;
+const tokenRegex = /([\^$]?[A-Za-z]\w*(\[\d+]|{\d+})?(@[A-Za-z]\w*)?|\d+d\d+!|\w+\b|[()]|[:+-]=|\.\.\.|->|#[+*&|]|[+*/,;]|[<>=]{1,2}|[|]{2}|&&|\B-\d+|-|\?)/g;
 
 /**
  * Convert a formula from a string into an array of tokens.

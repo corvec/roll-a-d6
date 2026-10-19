@@ -269,3 +269,52 @@ it('evaluates the Animated Objects test that was failing in 0.2.1', () => {
   expect(result).toEqual([11]);
   expect(newRolls).toEqual(rollsCopy);
 });
+
+describe('exploding dice', () => {
+  const rngFromValues = (values: number[]) => {
+    let i = 0;
+    return () => values[i++ % values.length];
+  };
+
+  it('rerolls and adds when a die rolls its maximum', () => {
+    // d6 values: 6, 6, 2 -> 1d6! = 14
+    const rng = rngFromValues([0.99, 0.99, 0.2]);
+    const { result, rolls } = evaluateFormula({ expressions: [['1d6!']], macros: {}, rng });
+    expect(result).toEqual([14]);
+    expect(rolls[6]).toEqual(['6(d6)', '6(d6)', '2(d6)']);
+  });
+
+  it('does not reroll below the maximum', () => {
+    const rng = rngFromValues([0.5]);
+    const { result } = evaluateFormula({ expressions: [['1d6!']], macros: {}, rng });
+    expect(result).toEqual([4]);
+  });
+
+  it('explodes each die of a multi-die roll independently', () => {
+    // d4 values: 4, 1 (first die explodes once), 2 (second die) -> 2d4! = 7
+    const rng = rngFromValues([0.99, 0, 0.3]);
+    const { result, rolls } = evaluateFormula({ expressions: [['2d4!']], macros: {}, rng });
+    expect(result).toEqual([7]);
+    expect(rolls[4]).toEqual(['4(d4)', '1(d4)', '2(d4)']);
+  });
+
+  it('replays saved exploding rolls without consuming the rng', () => {
+    let callCount = 0;
+    const rng = () => { callCount += 1; return 0.99; };
+    const first = evaluateFormula({ expressions: [['1d2!']], macros: {}, rng });
+    const replay = evaluateFormula({ expressions: [['1d2!']], macros: {}, rolls: first.rolls, rng: () => { throw new Error('rng must not be used in replay'); } });
+    expect(replay.result).toEqual(first.result);
+    expect(callCount).toBeLessThanOrEqual(100);
+  });
+
+  it('never explodes a d1 (which always rolls its maximum)', () => {
+    const { result } = evaluateFormula({ expressions: [['1d1!']], macros: {}, rng: () => 0 });
+    expect(result).toEqual([1]);
+  });
+
+  it('caps runaway explosions at 100 rolls per die', () => {
+    const { result, rolls } = evaluateFormula({ expressions: [['1d2!']], macros: {}, rng: () => 0.99 });
+    expect(result).toEqual([200]);
+    expect(rolls[2]).toHaveLength(100);
+  });
+});
