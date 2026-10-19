@@ -78,3 +78,38 @@ it('convertRPN completes a then-branch with pending operators before the else', 
     'a => b 1 2 * + -> c ;',
   );
 });
+
+describe('function calls', () => {
+  it('converts max(1,2) into arguments followed by a counted call token', () => {
+    expectWrapper(['max', '(', '1', ',', '2', ')'], '1 2 max:2');
+  });
+
+  it('converts expressions inside arguments', () => {
+    expectWrapper(['max', '(', '1d6', '+', '2', ',', '3', ')'], '1d6 2 + 3 max:2');
+  });
+
+  it('converts nested calls', () => {
+    expectWrapper(
+      ['max', '(', 'min', '(', '1d4', ',', '3', ')', ',', '5', ')'],
+      '1d4 3 min:2 5 max:2',
+    );
+  });
+
+  it('counts each die of a spread argument', () => {
+    expectWrapper(['max', '(', '...', '3d6', ',', '5', ')'], '...3d6 5 max:4');
+    expectWrapper(['min', '(', '...', '2d20', ')'], '...2d20 min:2');
+  });
+
+  it('rejects commas outside function calls', () => {
+    expect(() => convertToRPN(['(', '1', ',', '2', ')'])).toThrow(/Commas are only allowed/);
+  });
+
+  it('rejects spread outside direct function arguments', () => {
+    expect(() => convertToRPN(['max', '(', '(', '...', '3d6', ')', '+', '1', ',', '5', ')'])).toThrow(/Spread/);
+    expect(() => convertToRPN(['max', '(', '...', 'foo', ',', '5', ')'])).toThrow(/Spread/);
+  });
+
+  it('still treats ... between values as the side-effect separator', () => {
+    expectWrapper(['$a', ':=', '0', '...', '1d6'], '$a 0 := 1d6 ...');
+  });
+});

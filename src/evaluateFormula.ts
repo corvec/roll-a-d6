@@ -2,10 +2,13 @@ import {
   getTargetCollection,
   isConditional,
   isExpansionOperator,
+  isFunctionCallToken,
   isOperator,
   isRoll,
   isSideEffectOperator,
   isSideEffectVariable,
+  isSpreadRoll,
+  parseFunctionCallToken,
   stripPrefix,
   stripSuffix,
   variableTargetsCollection,
@@ -172,6 +175,39 @@ const rollRoll = (token: string, evaluationMetadata: EvaluationMetadata): number
   return [...Array(count).keys()].reduce(
     (accum) => accum + rollOneDie({ sides, exploding }, evaluationMetadata), 0,
   );
+};
+
+/**
+ * Roll each die of a roll token separately (e.g., for the spread '...3d6'),
+ * returning one entry per die. An exploding die's chain still collapses into
+ * that one die's entry.
+ */
+const rollSpread = (token: string, evaluationMetadata: EvaluationMetadata): number[] => {
+  const { count, sides, exploding } = parseRollToken(token);
+  return [...Array(count).keys()].map(() => rollOneDie({ sides, exploding }, evaluationMetadata));
+};
+
+/**
+ * Apply a function-call token (e.g., 'max:3') to the values its arguments
+ * left on the stack.
+ */
+const evaluateFunction = (
+  { stack, token }: {
+    stack: StackValue[];
+    token: string;
+  },
+): StackValue[] => {
+  const { name, argCount } = parseFunctionCallToken(token);
+  if (name === 'max' || name === 'min') {
+    if (stack.length < argCount) {
+      throw new Error(`${name}() called with ${stack.length} value(s) on the stack (needs ${argCount}).`);
+    }
+    const args = stack.slice(-argCount).map(Number);
+    const value = name === 'max' ? Math.max(...args) : Math.min(...args);
+    log(`${name}(${args.join(', ')}) => ${value}`);
+    return [...stack.slice(0, -argCount), value];
+  }
+  throw new Error(`Unknown function "${name}". Supported functions are max() and min().`);
 };
 
 const isBoolean = (token: StackValue): boolean => [true, false, 'true', 'false'].includes(token as boolean | string);
@@ -426,6 +462,10 @@ const evaluateExpression = (expression: RPNTokenList, evaluationMetadata: Evalua
       return evaluateConditional({ stack, token });
     } else if ((typeof top === 'string' && isConditional(top)) || token === '...') {
       return ignoreToken({ stack });
+    } else if (isSpreadRoll(token)) {
+      return [...stack, ...rollSpread(token.slice(3), evaluationMetadata)];
+    } else if (isFunctionCallToken(token)) {
+      return evaluateFunction({ stack, token });
     } else if (isSideEffectVariable(token)) {
       return [...stack, token];
     } else if (isSideEffectOperator(token)) {

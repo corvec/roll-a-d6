@@ -60,7 +60,7 @@ const validateAlternatingTokenType = (tokens: string[]): boolean => tokens.reduc
       }
       return result;
     }
-    if (i === tokens.length - 1 && (isOperator(token) || token === '(')) {
+    if (i === tokens.length - 1 && (isOperator(token) || ['(', ','].includes(token))) {
       log(`last token in the clause was ${token}`);
       return false;
     }
@@ -72,15 +72,32 @@ const validateAlternatingTokenType = (tokens: string[]): boolean => tokens.reduc
       }
       return result;
     }
+    if (token === ',') {
+      const result = isValue(lastToken) || lastToken === ')';
+      if (!result) {
+        log(`, followed ${lastToken} instead of a value or )`);
+      }
+      return result;
+    }
+    if (lastToken === ',') {
+      const result = isValue(token) || ['(', '...'].includes(token);
+      if (!result) {
+        log(`, was followed by ${token} instead of a value, (, or ...`);
+      }
+      return result;
+    }
     if (isOperator(lastToken) || lastToken === '(' || lastToken === '=') {
-      const result = isValue(token) || token === '(';
+      // '...' directly after '(' is a spread at the start of a function call's arguments
+      const result = isValue(token) || token === '(' || (lastToken === '(' && token === '...');
       if (!result) {
         log(`An operator, =, or ( was followed by ${token}`);
       }
       return result;
     }
     if (isValue(lastToken) || lastToken === ')') {
-      const result = isOperator(token) || token === ')';
+      // A plain name directly followed by '(' is a function call, e.g., max(1d6,5)
+      const result = isOperator(token) || token === ')'
+        || (token === '(' && isVariable(lastToken) && !/^[\^$]/.test(lastToken));
       if (!result) {
         log(`A value or ) was followed by ${token}`);
       }
@@ -111,7 +128,7 @@ export const validateClause = (rawClause: string, i?: number | string): string[]
   }
 
   // TODO: source valid strings from formulaTokenizer.ts or some other shared place instead
-  if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.!])+$/)) {
+  if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.!,])+$/)) {
     log(`${clause} did not match validation regex`);
     result.push(`Invalid characters in clause ${i}`);
   }

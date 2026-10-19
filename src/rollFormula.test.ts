@@ -308,3 +308,59 @@ describe('fudge dice formulas', () => {
     expect(d6.validateFormula('4dF!')).toContainEqual(expect.any(String));
   });
 });
+
+describe('max() and min() functions', () => {
+  it('evaluates max and min of plain values', () => {
+    expect(d6.rollFormula('max(3,7)', {}).result).toEqual([7]);
+    expect(d6.rollFormula('min(3,7)', {}).result).toEqual([3]);
+    expect(d6.rollFormula('max(1,5,3)', {}).result).toEqual([5]);
+  });
+
+  it('accepts whitespace and expressions in arguments', () => {
+    expect(d6.rollFormula('max(2 + 3, 16)', {}).result).toEqual([16]);
+  });
+
+  it('compares a whole roll against a floor, like max(3d6, 16)', () => {
+    expect(d6.rollFormula('max(3d6, 16)', {}, {}, { rng: () => 0 }).result).toEqual([16]);
+    expect(d6.rollFormula('max(3d6, 16)', {}, {}, { rng: () => 0.999 }).result).toEqual([18]);
+  });
+
+  it('spreads a roll into individual dice, like max(...3d6, 5)', () => {
+    const values = [0.1, 0.9, 0.3]; // d6: 1, 6, 2
+    let i = 0;
+    const spread = d6.rollFormula('max(...3d6, 5)', {}, {}, { rng: () => values[i++ % values.length] });
+    expect(spread.result).toEqual([6]);
+    i = 0;
+    const lowSpread = d6.rollFormula('max(...3d6, 5)', {}, {}, { rng: () => 0 });
+    expect(lowSpread.result).toEqual([5]); // all dice rolled 1
+  });
+
+  it('takes the lowest single die with min(...NdX)', () => {
+    const values = [0.9, 0.1]; // d20: 19, 3
+    let i = 0;
+    const { result, rolls } = d6.rollFormula('min(...2d20)', {}, {}, { rng: () => values[i++ % values.length] });
+    expect(result).toEqual([3]);
+    expect(rolls[20]).toHaveLength(2);
+  });
+
+  it('works with macros as arguments', () => {
+    expect(d6.rollFormula('max(a, b)', { a: '4', b: '9' }).result).toEqual([9]);
+  });
+
+  it('works inside conditionals and is skipped on untaken branches', () => {
+    const { result, rolls } = d6.rollFormula('1>2->max(...3d6,5);7', {});
+    expect(result).toEqual([7]);
+    expect(Object.keys(rolls)).toEqual([]);
+  });
+
+  it('validates function-call syntax', () => {
+    expect(d6.validateFormula('max(3d6, 16)')).toEqual([]);
+    expect(d6.validateFormula('max(...3d6, 5)')).toEqual([]);
+    expect(d6.validateFormula('max(,5)')).toContainEqual(expect.any(String));
+    expect(d6.validateFormula('max(5,)')).toContainEqual(expect.any(String));
+  });
+
+  it('throws a clear error for unknown functions', () => {
+    expect(() => d6.rollFormula('foo(1,2)', {})).toThrow(/Unknown function "foo"/);
+  });
+});

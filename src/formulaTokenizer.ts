@@ -56,6 +56,33 @@ export const isRoll = (token: string): boolean => /^\d+d(\d+!?|F)$/.test(token);
 export const isGrouping = (token: string): boolean => ['(', ')'].includes(token);
 
 /**
+ * Is the token a function-call token in RPN form (e.g., 'max:2' = call max with 2 arguments)?
+ * These are produced by the RPN converter from call syntax like max(1d6,5).
+ */
+export const isFunctionCallToken = (token: string): boolean =>
+  /^[a-zA-Z]\w*(@[A-Za-z]\w*)?:\d+$/.test(token);
+
+/**
+ * Get the name and argument count of an RPN function-call token
+ * @example // returns { name: 'max', argCount: 2 }
+ * parseFunctionCallToken('max:2')
+ */
+export const parseFunctionCallToken = (token: string): { name: string; argCount: number } => {
+  const colonIndex = token.lastIndexOf(':');
+  return {
+    name: token.slice(0, colonIndex),
+    argCount: parseInt(token.slice(colonIndex + 1), 10),
+  };
+};
+
+/**
+ * Is the token a spread roll (e.g., '...3d6'), which pushes each die's result separately?
+ * Only valid directly inside function-call arguments; produced by the RPN converter.
+ */
+export const isSpreadRoll = (token: string): boolean =>
+  token.startsWith('...') && isRoll(token.slice(3));
+
+/**
  * Is the token a value - a variable, variable instance, dice roll, number, or '?'.
  */
 export const isValue = (token: string): boolean =>
@@ -65,7 +92,7 @@ export const isValue = (token: string): boolean =>
  * Is the token valid?
  */
 export const isValidToken = (token: string): boolean =>
-  isOperator(token) || isValue(token) || isGrouping(token) || ['=', '?'].includes(token);
+  isOperator(token) || isValue(token) || isGrouping(token) || ['=', '?', ','].includes(token);
 
 
 const targetCollectionRegex = /@[A-Za-z]\w+$/;
