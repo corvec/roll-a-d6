@@ -1,4 +1,4 @@
-import validateFormula, { validateParentheses } from './validateFormula.js';
+import validateFormula, { splitFormulaClauses, validateParentheses } from './validateFormula.js';
 
 it('validates parentheses', () => {
   expect(validateParentheses('()()()()')).toEqual(true);
@@ -81,4 +81,10 @@ it('accepts whitespace between tokens but rejects whitespace inside a value', ()
   expect(validateFormula('1 1')).toContainEqual(expect.any(String));
   expect(validateFormula('1 d20')).toContainEqual(expect.any(String));
   expect(validateFormula('foo bar')).toContainEqual(expect.any(String));
+});
+
+it('splitFormulaClauses splits at top-level commas only', () => {
+  expect(splitFormulaClauses('a,b')).toEqual(['a', 'b']);
+  expect(splitFormulaClauses('a,max(1,2),b')).toEqual(['a', 'max(1,2)', 'b']);
+  expect(splitFormulaClauses('f(g(1,2),3)')).toEqual(['f(g(1,2),3)']);
 });

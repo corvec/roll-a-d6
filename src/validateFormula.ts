@@ -161,6 +161,33 @@ export const clauseHasMislocatedAssignmentOperator = (clause: string[]): boolean
 );
 
 /**
+ * Split a formula string into clauses at top-level commas. Commas inside
+ * parentheses (e.g., function-call arguments like max(1d6,5)) do not split.
+ * @example // returns ['a', 'max(1,2)']
+ * splitFormulaClauses('a,max(1,2)')
+ */
+export const splitFormulaClauses = (formula: string): string[] => {
+  const clauses: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const char of formula) {
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+    }
+    if (char === ',' && depth === 0) {
+      clauses.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  clauses.push(current);
+  return clauses;
+};
+
+/**
  * Perform validation for the entire formula (an unconverted string) one clause at a time
  * @returns Empty if valid. Array of issues found.
  */
@@ -168,7 +195,7 @@ export const validateFormula = (formula: string): string[] => {
   if (typeof formula !== 'string') {
     throw new Error('validateFormula() called with an invalid formula (i.e., of a non-string type)');
   }
-  const clauses = formula.split(',');
+  const clauses = splitFormulaClauses(formula);
   const result = clauses.flatMap((clause, i) => validateClause(clause, i + 1));
   if (!enableLogging) {
     return result;
