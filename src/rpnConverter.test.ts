@@ -58,3 +58,23 @@ it('operator order examples are in the correct order', () => {
     expect(parenResult).toEqual(oooResult);
   });
 });
+
+it('convertRPN chains else-if conditionals without parentheses', () => {
+  expectWrapper(
+    ['a', '->', 'b', ';', 'c', '->', 'd', ';', 'e'],
+    'a => b -> c => d -> e ; ;',
+  );
+});
+
+it('unparenthesized else-if chains convert identically to parenthesized ones', () => {
+  const chained = tokenize('a>5->b;c>5->d;e') as string[];
+  const parenthesized = tokenize('a>5->b;(c>5->d;e)') as string[];
+  expect(convertToRPN(chained)).toEqual(convertToRPN(parenthesized));
+});
+
+it('convertRPN completes a then-branch with pending operators before the else', () => {
+  expectWrapper(
+    ['a', '->', 'b', '+', '1', '*', '2', ';', 'c'],
+    'a => b 1 2 * + -> c ;',
+  );
+});
