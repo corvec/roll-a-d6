@@ -102,6 +102,14 @@ export const validateClause = (rawClause: string, i?: number | string): string[]
   const clause = rawClause.replace(/\s+/g, '');
   const result: string[] = [];
 
+  // Whitespace between two word characters (e.g., '1 1' or 'a b') would silently merge
+  // two values into one token once stripped, so reject it outright.
+  if (/\w\s+\w/.test(rawClause)) {
+    log(`${rawClause} contains whitespace splitting a value`);
+    result.push(`Whitespace splits a value in clause ${i}`);
+    return result;
+  }
+
   // TODO: source valid strings from formulaTokenizer.ts or some other shared place instead
   if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.!])+$/)) {
     log(`${clause} did not match validation regex`);

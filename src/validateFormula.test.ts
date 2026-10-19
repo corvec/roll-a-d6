@@ -74,3 +74,11 @@ it('marks formulas using side effects as valid', () => {
   expect(validateFormula('1d6>3->a-=5;a-=6')).toEqual([]);
   expect(validateFormula('1d6>3->a+=5;a+=6')).toEqual([]);
 });
+
+it('accepts whitespace between tokens but rejects whitespace inside a value', () => {
+  expect(validateFormula('1d20 + 5')).toEqual([]);
+  expect(validateFormula('( 1d6 + 2 ) * 3')).toEqual([]);
+  expect(validateFormula('1 1')).toContainEqual(expect.any(String));
+  expect(validateFormula('1 d20')).toContainEqual(expect.any(String));
+  expect(validateFormula('foo bar')).toContainEqual(expect.any(String));
+});
