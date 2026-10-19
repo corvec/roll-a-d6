@@ -15,7 +15,10 @@
  */
 
 import { ValidationError } from './errorTypes.js';
-import type { LookupTable, LookupTableEntry, TableMap } from './types.js';
+import tokenize from './formulaTokenizer.js';
+import convertToRPN from './rpnConverter.js';
+import { validateClause } from './validateFormula.js';
+import type { LookupTable, LookupTableEntry, RPNTokenList, TableMap } from './types.js';
 
 /**
  * Is this macro definition a lookup table (text or formula)?
@@ -85,22 +88,30 @@ const splitRows = (body: string): string[] => {
 };
 
 /**
+ * Validate and convert one formula row's value into RPN.
+ * @throws {ValidationError} when the row's formula is invalid
+ */
+const parseFormulaRow = (formula: string, rowDescriptor: string): RPNTokenList => {
+  const issues = validateClause(formula, rowDescriptor);
+  if (issues.length > 0) {
+    throw new ValidationError(issues);
+  }
+  return convertToRPN(tokenize(formula) as string[]);
+};
+
+/**
  * Parse a lookup table definition into its rows.
  * @param name The table's name (used in error messages)
  * @param definition The raw table definition, e.g., '[1-2: Goblin, default: Nothing]'
- * @param parseFormula Converts a formula row's value into RPN (only called for '[[...]]' tables)
+ *                   or '[[1-2: 1d6, default: 0]]'
  * @throws {ValidationError} when the definition is not a well-formed table
  */
 export const parseLookupTable = (
   name: string,
   definition: string,
-  parseFormula?: (formula: string, rowDescriptor: string) => LookupTableEntry['formula'],
 ): LookupTable => {
   const trimmed = definition.trim();
   const isFormulaTable = trimmed.startsWith('[[') && trimmed.endsWith(']]');
-  if (isFormulaTable && !parseFormula) {
-    throw new ValidationError([`Formula lookup tables are not supported here (table "${name}")`]);
-  }
   const body = isFormulaTable ? trimmed.slice(2, -2) : trimmed.slice(1, -1);
   const rows = splitRows(body);
   if (rows.length === 0) {
@@ -118,7 +129,7 @@ export const parseLookupTable = (
     }
     const bounds = parseSelector(selector, name);
     return isFormulaTable
-      ? { ...bounds, formula: (parseFormula as NonNullable<typeof parseFormula>)(value, `${name}[${selector}]`) }
+      ? { ...bounds, formula: parseFormulaRow(value, `${name}[${selector}]`) }
       : { ...bounds, text: value };
   });
   return { kind: isFormulaTable ? 'formula' : 'text', entries };
@@ -144,13 +155,12 @@ export const lookUpEntry = (table: LookupTable, name: string, value: number): Lo
  */
 export const extractLookupTables = (
   formulasMap: Record<string, string>,
-  parseFormula?: (formula: string, rowDescriptor: string) => LookupTableEntry['formula'],
 ): { tables: TableMap; formulas: Record<string, string> } => {
   const tables: TableMap = {};
   const formulas: Record<string, string> = {};
   for (const [name, definition] of Object.entries(formulasMap)) {
     if (isLookupTableDefinition(definition)) {
-      tables[name] = parseLookupTable(name, definition, parseFormula);
+      tables[name] = parseLookupTable(name, definition);
     } else {
       formulas[name] = definition;
     }

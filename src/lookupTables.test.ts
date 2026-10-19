@@ -66,3 +66,24 @@ describe('extractLookupTables', () => {
     expect(formulas).toEqual({ Strength: '5' });
   });
 });
+
+describe('parseLookupTable (formula)', () => {
+  it('parses double-bracketed tables into RPN rows', () => {
+    const table = parseLookupTable('dmg', '[[1-2: 1d6, 3-5: 2d6+2, 6: 3d6!]]');
+    expect(table.kind).toBe('formula');
+    expect(table.entries).toEqual([
+      { min: 1, max: 2, formula: ['1d6'] },
+      { min: 3, max: 5, formula: ['2d6', '2', '+'] },
+      { min: 6, max: 6, formula: ['3d6!'] },
+    ]);
+  });
+
+  it('allows function calls with commas inside a row', () => {
+    const table = parseLookupTable('t', '[[1: max(1d6,3), default: 0]]');
+    expect(table.entries[0].formula).toEqual(['1d6', '3', 'max:2']);
+  });
+
+  it('rejects rows with invalid formulas', () => {
+    expect(() => parseLookupTable('t', '[[1: 1d6+]]')).toThrow(ValidationError);
+  });
+});

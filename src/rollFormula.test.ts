@@ -407,3 +407,51 @@ describe('text lookup tables', () => {
     expect(() => d6.rollFormula('t(1)', { t: '[bad row]' })).toThrow(d6.ErrorTypes.ValidationError);
   });
 });
+
+describe('formula lookup tables', () => {
+  it('evaluates the selected row as a formula', () => {
+    const macros = { dmgTable: '[[1-3: 1d6, 4-5: 2d6+2, 6: 3d6!]]' };
+    expect(d6.rollFormula('dmgTable(1)', macros, {}, { rng: () => 0 }).result).toEqual([1]);
+    expect(d6.rollFormula('dmgTable(4)', macros, {}, { rng: () => 0 }).result).toEqual([4]);
+  });
+
+  it('only rolls the selected row (lazy evaluation)', () => {
+    const macros = { dmgTable: '[[1-3: 1d4, 4+: 1d8]]' };
+    const { rolls } = d6.rollFormula('dmgTable(2)', macros, {}, { rng: () => 0 });
+    expect(Object.keys(rolls)).toEqual(['4']);
+  });
+
+  it('selects rows with a dice roll and explodes inside rows', () => {
+    const macros = { dmgTable: '[[1-5: 0, 6: 1d6!]]' };
+    const values = [0.99, 0.99, 0.1]; // selector d6: 6 -> row rolls 1d6!: 6, then 1 = 7
+    let i = 0;
+    const { result } = d6.rollFormula('dmgTable(1d6)', macros, {}, { rng: () => values[i++] });
+    expect(result).toEqual([7]);
+  });
+
+  it('resolves macros referenced only from table rows', () => {
+    const macros = {
+      bonus: '4',
+      dmgTable: '[[1-3: 1d6+bonus, default: bonus]]',
+    };
+    expect(d6.rollFormula('dmgTable(6)', macros).result).toEqual([4]);
+  });
+
+  it('flags unknown variables referenced only from table rows', () => {
+    const macros = { dmgTable: '[[1: 1d6+missing, default: 0]]' };
+    expect(() => d6.rollFormula('dmgTable(1)', macros)).toThrow(d6.ErrorTypes.UnknownVariablesError);
+  });
+
+  it('supports tables whose rows call other tables', () => {
+    const macros = {
+      outer: '[[1-3: inner(2), default: 0]]',
+      inner: '[[1-2: 100, default: 5]]',
+    };
+    expect(d6.rollFormula('outer(2)', macros).result).toEqual([100]);
+  });
+
+  it('supports conditionals inside rows', () => {
+    const macros = { t: '[[1: 1>2->5;7, default: 0]]' };
+    expect(d6.rollFormula('t(1)', macros).result).toEqual([7]);
+  });
+});
