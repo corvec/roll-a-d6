@@ -123,6 +123,45 @@ const convertToFormulasMap = (
 };
 
 
+/**
+ * Walk the given clauses for table-call tokens and gather the formula rows of every
+ * referenced table (including tables referenced from other tables' rows), so those
+ * rows participate in macro resolution and unknown-variable checking.
+ */
+const collectTableExpressions = (
+  clauses: RPNTokenList[],
+  tables: TableMap,
+): { rowExpressions: RPNTokenList[]; unknownTables: string[] } => {
+  const referenced = new Set<string>();
+  const unknown = new Set<string>();
+  const rowExpressions: RPNTokenList[] = [];
+  const queue = [...clauses];
+  while (queue.length > 0) {
+    const clause = queue.pop() as RPNTokenList;
+    for (const token of clause) {
+      if (!isFunctionCallToken(token)) {
+        continue;
+      }
+      const { name } = parseFunctionCallToken(token);
+      if (['max', 'min'].includes(name) || referenced.has(name) || unknown.has(name)) {
+        continue;
+      }
+      if (!tables.hasOwnProperty(name)) {
+        unknown.add(name);
+        continue;
+      }
+      referenced.add(name);
+      for (const entry of tables[name].entries) {
+        if (entry.formula) {
+          rowExpressions.push(entry.formula);
+          queue.push(entry.formula);
+        }
+      }
+    }
+  }
+  return { rowExpressions, unknownTables: [...unknown] };
+};
+
 export interface RollFormulaOptions {
   /**
    * When the formula contains an uncertain value ('?'), input values from 0 up to (but not
@@ -167,26 +206,33 @@ export const rollFormula = (
   };
   // Lookup table definitions are parsed separately; they are not tokenizable formulas
   const { tables, formulas: plainCollectionFormulas } = extractLookupTables(fullCollectionFormulasMap);
-  const macrosFromCollection = unassignedVariables.length > 0
+  const usesCallSyntax = [...expressions, ...Object.values(macros)]
+    .some(clause => clause.some(isFunctionCallToken));
+  const macrosFromCollection = unassignedVariables.length > 0 || usesCallSyntax
     ? formulaParser.getMacrosFromCollection(plainCollectionFormulas)
     : {};
 
-  const { variables, usedMacros } = formulaParser.getUnassignedVariablesAndUsedMacros(
-    expressions, macros, macrosFromCollection,
-  );
-
-  const referencedTableNames = [...new Set(
-    [...expressions, ...Object.values(usedMacros)]
-      .flatMap(clause => clause.filter(isFunctionCallToken).map(token => parseFunctionCallToken(token).name))
-      .filter(name => !['max', 'min'].includes(name)),
-  )];
-  const unknownTables = referencedTableNames.filter(name => !tables.hasOwnProperty(name));
-  if (unknownTables.length > 0) {
-    throw new ErrorTypes.UnknownVariablesError(unknownTables);
+  // Repeat the analysis until it stabilizes: formula rows of referenced tables can
+  // pull in macros, which can themselves reference further tables.
+  let analysisExpressions = [...expressions];
+  let variables: string[] = [];
+  let usedMacros: MacroMap = {};
+  for (let previousCount = -1; previousCount !== analysisExpressions.length;) {
+    previousCount = analysisExpressions.length;
+    ({ variables, usedMacros } = formulaParser.getUnassignedVariablesAndUsedMacros(
+      analysisExpressions, macros, macrosFromCollection,
+    ));
+    const { rowExpressions, unknownTables } = collectTableExpressions(
+      [...analysisExpressions, ...Object.values(usedMacros)], tables,
+    );
+    if (unknownTables.length > 0) {
+      throw new ErrorTypes.UnknownVariablesError(unknownTables);
+    }
+    analysisExpressions = [...expressions, ...rowExpressions];
   }
 
   const noPromptVariables = variables.filter(variable =>
-    [...Object.values(usedMacros), ...expressions].some(clause => clause.some(
+    [...Object.values(usedMacros), ...analysisExpressions].some(clause => clause.some(
       token => token === `^${variable}`,
     )));
 
