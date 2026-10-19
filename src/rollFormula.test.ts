@@ -241,3 +241,32 @@ it('buildResultRange tested with Animate Objects (another failing case found in 
   ];
   expect(resultRange).toEqual(expectedResultRange);
 });
+
+describe('chained else-if conditionals', () => {
+  it('takes the first branch whose condition is true', () => {
+    expect(d6.rollFormula('v=1,v==1->11;v==2->22;33', {}).result).toEqual([11]);
+    expect(d6.rollFormula('v=2,v==1->11;v==2->22;33', {}).result).toEqual([22]);
+    expect(d6.rollFormula('v=3,v==1->11;v==2->22;33', {}).result).toEqual([33]);
+  });
+
+  it('supports three chained else-ifs', () => {
+    const formula = 'v==1->11;v==2->22;v==3->33;v==4->44;0';
+    expect(d6.rollFormula(formula, { v: '3' }).result).toEqual([33]);
+    expect(d6.rollFormula(formula, { v: '4' }).result).toEqual([44]);
+    expect(d6.rollFormula(formula, { v: '5' }).result).toEqual([0]);
+  });
+
+  it('matches the behavior of explicitly parenthesized chains', () => {
+    [1, 2, 3].forEach(v => {
+      const chained = d6.rollFormula(`v=${v},v==1->11;v==2->22;33`, {});
+      const parenthesized = d6.rollFormula(`v=${v},v==1->11;(v==2->22;33)`, {});
+      expect(chained.result).toEqual(parenthesized.result);
+    });
+  });
+
+  it('does not roll dice in untaken chain branches', () => {
+    const { result, rolls } = d6.rollFormula('v=2,v==1->1d4;v==2->1d6;1d8', {});
+    expect(typeof result[0]).toBe('number');
+    expect(Object.keys(rolls)).toEqual(['6']);
+  });
+});
