@@ -360,7 +360,50 @@ describe('max() and min() functions', () => {
     expect(d6.validateFormula('max(5,)')).toContainEqual(expect.any(String));
   });
 
-  it('throws a clear error for unknown functions', () => {
-    expect(() => d6.rollFormula('foo(1,2)', {})).toThrow(/Unknown function "foo"/);
+  it('throws UnknownVariablesError for unknown functions', () => {
+    expect(() => d6.rollFormula('foo(1,2)', {})).toThrow(d6.ErrorTypes.UnknownVariablesError);
+    expect(() => d6.rollFormula('foo(1,2)', {})).toThrow(/foo/);
+  });
+});
+
+describe('text lookup tables', () => {
+  const macros = { encounterTable: '[1-2: Goblin ambush, 3-5: Wolves, 6: Ancient dragon]' };
+
+  it('returns the matching row text for a roll', () => {
+    expect(d6.rollFormula('encounterTable(1d6)', macros, {}, { rng: () => 0 }).result)
+      .toEqual(['Goblin ambush']);
+    expect(d6.rollFormula('encounterTable(1d6)', macros, {}, { rng: () => 0.999 }).result)
+      .toEqual(['Ancient dragon']);
+  });
+
+  it('accepts expressions as the selector argument', () => {
+    expect(d6.rollFormula('encounterTable(2+1)', macros).result).toEqual(['Wolves']);
+  });
+
+  it('supports default rows', () => {
+    const withDefault = { t: '[20: crit!, default: no crit]' };
+    expect(d6.rollFormula('t(5)', withDefault).result).toEqual(['no crit']);
+    expect(d6.rollFormula('t(20)', withDefault).result).toEqual(['crit!']);
+  });
+
+  it('works through targeted collections', () => {
+    const targetedCollections = {
+      GM: { rolls: { reaction: '[1-3: hostile, 4+: friendly]' }, collections: {} },
+    };
+    expect(d6.rollFormula('reaction@GM(4)', {}, targetedCollections).result).toEqual(['friendly']);
+  });
+
+  it('supports comparing two lookups with ==', () => {
+    const tableMacros = { mood: '[1-3: angry, 4-6: calm]' };
+    expect(d6.rollFormula('mood(1)==mood(2)->10;20', tableMacros).result).toEqual([10]);
+    expect(d6.rollFormula('mood(1)==mood(5)->10;20', tableMacros).result).toEqual([20]);
+  });
+
+  it('throws UnknownVariablesError for a missing table', () => {
+    expect(() => d6.rollFormula('missingTable(1d6)', {})).toThrow(d6.ErrorTypes.UnknownVariablesError);
+  });
+
+  it('throws a ValidationError for a malformed table definition', () => {
+    expect(() => d6.rollFormula('t(1)', { t: '[bad row]' })).toThrow(d6.ErrorTypes.ValidationError);
   });
 });
