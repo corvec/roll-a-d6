@@ -103,14 +103,22 @@ export const stripSuffix = (variableInstance: string): string => variableInstanc
   .replace(/(\[.*]|{.*})$/, '');
 
 /**
- * Split a tokenized list into multiple tokenized lists based on the comma token
+ * Split a tokenized list into multiple tokenized lists based on the comma token.
+ * Commas inside parentheses (e.g., function-call arguments like max(1d6,5)) do
+ * not split the list.
  * @example // returns [['a'],['c']]
  * splitTokenList(['a', ',', 'c'])
  */
 export const splitTokenList = (tokens: string[]): string[][] => {
   const result: string[][] = [[]];
+  let depth = 0;
   for (const token of tokens) {
-    if (token === ',') {
+    if (token === '(') {
+      depth += 1;
+    } else if (token === ')') {
+      depth -= 1;
+    }
+    if (token === ',' && depth === 0) {
       result.push([]);
     } else {
       result[result.length - 1].push(token);
