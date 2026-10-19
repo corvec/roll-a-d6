@@ -270,3 +270,14 @@ describe('chained else-if conditionals', () => {
     expect(Object.keys(rolls)).toEqual(['6']);
   });
 });
+
+describe('whitespace in formulas', () => {
+  it('ignores whitespace around operators and values', () => {
+    expect(d6.rollFormula('2 + 3 * 4', {}).result).toEqual([14]);
+    expect(d6.rollFormula('v = 5, v == 5 -> 1; 0', {}).result).toEqual([1]);
+  });
+
+  it('validates formulas with whitespace', () => {
+    expect(d6.validateFormula('1d20 + 5')).toEqual([]);
+  });
+});

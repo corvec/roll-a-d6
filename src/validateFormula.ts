@@ -92,12 +92,14 @@ const validateAlternatingTokenType = (tokens: string[]): boolean => tokens.reduc
 );
 
 /**
- * Confirm that the clause matches the appropriate format and that the other validators pass
- * @param clause
+ * Confirm that the clause matches the appropriate format and that the other validators pass.
+ * Whitespace is not significant and is removed before validation.
+ * @param rawClause
  * @param i clause descriptor
  * @returns Empty if valid. Array of found issues.
  */
-export const validateClause = (clause: string, i?: number | string): string[] => {
+export const validateClause = (rawClause: string, i?: number | string): string[] => {
+  const clause = rawClause.replace(/\s+/g, '');
   const result: string[] = [];
 
   // TODO: source valid strings from formulaTokenizer.ts or some other shared place instead

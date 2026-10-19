@@ -126,11 +126,13 @@ const tokenRegex = /([\^$]?[A-Za-z]\w*(\[\d+]|{\d+})?(@[A-Za-z]\w*)?|\w+\b|[()]|
 /**
  * Convert a formula from a string into an array of tokens.
  * Each token should represent either a value or an operator.
+ * Whitespace is not significant and is removed before matching.
  * @example // returns ['1d20', '+', '5']
- * tokenize('1d20+5')
+ * tokenize('1d20 + 5')
  *
  * @returns Array of tokens, or null if nothing in the formula matched
  */
-export const tokenize = (formula: string): string[] | null => formula.match(tokenRegex);
+export const tokenize = (formula: string): string[] | null =>
+  formula.replace(/\s+/g, '').match(tokenRegex);
 
 export default tokenize;
