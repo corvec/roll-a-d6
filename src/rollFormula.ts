@@ -1,7 +1,8 @@
-import tokenize from './formulaTokenizer.js';
+import tokenize, { isFunctionCallToken, parseFunctionCallToken } from './formulaTokenizer.js';
 import validateFormula from './validateFormula.js';
 import * as formulaParser from './formulaParser/index.js';
 import evaluateFormula from './evaluateFormula.js';
+import { extractLookupTables } from './lookupTables.js';
 import { getPropertyByPath, objectMakerReduceHelper } from './helpers.js';
 import * as ErrorTypes from './errorTypes.js';
 import type {
@@ -11,6 +12,7 @@ import type {
   RollLog,
   RPNTokenList,
   SideEffects,
+  TableMap,
   TargetedCollection,
 } from './types.js';
 
@@ -36,9 +38,10 @@ export interface ResultRange {
  * to it, so that every probe reuses the same underlying dice results.
  */
 export const buildResultRange = (
-  { expressions, macrosWithCertainty, rolls, uncertainValues, result, maxRange = 40, initialSideEffects, rng }: {
+  { expressions, macrosWithCertainty, tables = {}, rolls, uncertainValues, result, maxRange = 40, initialSideEffects, rng }: {
     expressions: RPNTokenList[];
     macrosWithCertainty: (value: number) => MacroMap;
+    tables?: TableMap;
     rolls: RollLog;
     uncertainValues: string[];
     result: ResultEntry[];
@@ -52,6 +55,7 @@ export const buildResultRange = (
       const { sideEffects, result: currentResult } = evaluateFormula({
         expressions,
         macros: macrosWithCertainty(testValue),
+        tables,
         rolls, // don't need to pass a new one in because we mutate the old one
         rng,
       });
@@ -119,6 +123,45 @@ const convertToFormulasMap = (
 };
 
 
+/**
+ * Walk the given clauses for table-call tokens and gather the formula rows of every
+ * referenced table (including tables referenced from other tables' rows), so those
+ * rows participate in macro resolution and unknown-variable checking.
+ */
+const collectTableExpressions = (
+  clauses: RPNTokenList[],
+  tables: TableMap,
+): { rowExpressions: RPNTokenList[]; unknownTables: string[] } => {
+  const referenced = new Set<string>();
+  const unknown = new Set<string>();
+  const rowExpressions: RPNTokenList[] = [];
+  const queue = [...clauses];
+  while (queue.length > 0) {
+    const clause = queue.pop() as RPNTokenList;
+    for (const token of clause) {
+      if (!isFunctionCallToken(token)) {
+        continue;
+      }
+      const { name } = parseFunctionCallToken(token);
+      if (['max', 'min'].includes(name) || referenced.has(name) || unknown.has(name)) {
+        continue;
+      }
+      if (!tables.hasOwnProperty(name)) {
+        unknown.add(name);
+        continue;
+      }
+      referenced.add(name);
+      for (const entry of tables[name].entries) {
+        if (entry.formula) {
+          rowExpressions.push(entry.formula);
+          queue.push(entry.formula);
+        }
+      }
+    }
+  }
+  return { rowExpressions, unknownTables: [...unknown] };
+};
+
 export interface RollFormulaOptions {
   /**
    * When the formula contains an uncertain value ('?'), input values from 0 up to (but not
@@ -161,20 +204,40 @@ export const rollFormula = (
     ...collectionFormulasMap,
     ...convertToFormulasMap(targetedCollections),
   };
-  const macrosFromCollection = unassignedVariables.length > 0
-    ? formulaParser.getMacrosFromCollection(fullCollectionFormulasMap)
+  // Lookup table definitions are parsed separately; they are not tokenizable formulas
+  const { tables, formulas: plainCollectionFormulas } = extractLookupTables(fullCollectionFormulasMap);
+  const usesCallSyntax = [...expressions, ...Object.values(macros)]
+    .some(clause => clause.some(isFunctionCallToken));
+  const macrosFromCollection = unassignedVariables.length > 0 || usesCallSyntax
+    ? formulaParser.getMacrosFromCollection(plainCollectionFormulas)
     : {};
 
-  const { variables, usedMacros } = formulaParser.getUnassignedVariablesAndUsedMacros(
-    expressions, macros, macrosFromCollection,
-  );
+  // Repeat the analysis until it stabilizes: formula rows of referenced tables can
+  // pull in macros, which can themselves reference further tables.
+  let analysisExpressions = [...expressions];
+  let variables: string[] = [];
+  let usedMacros: MacroMap = {};
+  for (let previousCount = -1; previousCount !== analysisExpressions.length;) {
+    previousCount = analysisExpressions.length;
+    ({ variables, usedMacros } = formulaParser.getUnassignedVariablesAndUsedMacros(
+      analysisExpressions, macros, macrosFromCollection,
+    ));
+    const { rowExpressions, unknownTables } = collectTableExpressions(
+      [...analysisExpressions, ...Object.values(usedMacros)], tables,
+    );
+    if (unknownTables.length > 0) {
+      throw new ErrorTypes.UnknownVariablesError(unknownTables);
+    }
+    analysisExpressions = [...expressions, ...rowExpressions];
+  }
 
   const noPromptVariables = variables.filter(variable =>
-    [...Object.values(usedMacros), ...expressions].some(clause => clause.some(
+    [...Object.values(usedMacros), ...analysisExpressions].some(clause => clause.some(
       token => token === `^${variable}`,
     )));
 
-  const missingVariables = variables.filter(variable => !noPromptVariables.includes(variable));
+  const missingVariables = variables.filter(variable =>
+    !noPromptVariables.includes(variable) && !tables.hasOwnProperty(variable));
   if (missingVariables.length > 0) {
     throw new ErrorTypes.UnknownVariablesError(missingVariables);
   }
@@ -191,15 +254,15 @@ export const rollFormula = (
     throw new Error('Multiple uncertain values are not yet supported.');
   }
   if (uncertainValues.length === 0) {
-    const { result, rolls, sideEffects } = evaluateFormula({ expressions, macros: allMacros, rng });
+    const { result, rolls, sideEffects } = evaluateFormula({ expressions, macros: allMacros, tables, rng });
     return { result, rolls, sideEffects, allMacros, macros };
   }
   const macrosWithCertainty = (value: number): MacroMap => ({
     ...allMacros,
     [uncertainValues[0]]: [`${value}`],
   });
-  const { result, rolls, sideEffects: initialSideEffects } = evaluateFormula({ expressions, macros: macrosWithCertainty(0), rng });
-  const resultRange = buildResultRange({ expressions, macrosWithCertainty, result, rolls, uncertainValues, initialSideEffects, maxRange, rng });
+  const { result, rolls, sideEffects: initialSideEffects } = evaluateFormula({ expressions, macros: macrosWithCertainty(0), tables, rng });
+  const resultRange = buildResultRange({ expressions, macrosWithCertainty, tables, result, rolls, uncertainValues, initialSideEffects, maxRange, rng });
 
   return { result: resultRange, rolls, allMacros, macros };
 };

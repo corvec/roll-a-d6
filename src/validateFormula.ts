@@ -60,7 +60,7 @@ const validateAlternatingTokenType = (tokens: string[]): boolean => tokens.reduc
       }
       return result;
     }
-    if (i === tokens.length - 1 && (isOperator(token) || token === '(')) {
+    if (i === tokens.length - 1 && (isOperator(token) || ['(', ','].includes(token))) {
       log(`last token in the clause was ${token}`);
       return false;
     }
@@ -72,15 +72,32 @@ const validateAlternatingTokenType = (tokens: string[]): boolean => tokens.reduc
       }
       return result;
     }
+    if (token === ',') {
+      const result = isValue(lastToken) || lastToken === ')';
+      if (!result) {
+        log(`, followed ${lastToken} instead of a value or )`);
+      }
+      return result;
+    }
+    if (lastToken === ',') {
+      const result = isValue(token) || ['(', '...'].includes(token);
+      if (!result) {
+        log(`, was followed by ${token} instead of a value, (, or ...`);
+      }
+      return result;
+    }
     if (isOperator(lastToken) || lastToken === '(' || lastToken === '=') {
-      const result = isValue(token) || token === '(';
+      // '...' directly after '(' is a spread at the start of a function call's arguments
+      const result = isValue(token) || token === '(' || (lastToken === '(' && token === '...');
       if (!result) {
         log(`An operator, =, or ( was followed by ${token}`);
       }
       return result;
     }
     if (isValue(lastToken) || lastToken === ')') {
-      const result = isOperator(token) || token === ')';
+      // A plain name directly followed by '(' is a function call, e.g., max(1d6,5)
+      const result = isOperator(token) || token === ')'
+        || (token === '(' && isVariable(lastToken) && !/^[\^$]/.test(lastToken));
       if (!result) {
         log(`A value or ) was followed by ${token}`);
       }
@@ -92,16 +109,26 @@ const validateAlternatingTokenType = (tokens: string[]): boolean => tokens.reduc
 );
 
 /**
- * Confirm that the clause matches the appropriate format and that the other validators pass
- * @param clause
+ * Confirm that the clause matches the appropriate format and that the other validators pass.
+ * Whitespace is not significant and is removed before validation.
+ * @param rawClause
  * @param i clause descriptor
  * @returns Empty if valid. Array of found issues.
  */
-export const validateClause = (clause: string, i?: number | string): string[] => {
+export const validateClause = (rawClause: string, i?: number | string): string[] => {
+  const clause = rawClause.replace(/\s+/g, '');
   const result: string[] = [];
 
+  // Whitespace between two word characters (e.g., '1 1' or 'a b') would silently merge
+  // two values into one token once stripped, so reject it outright.
+  if (/\w\s+\w/.test(rawClause)) {
+    log(`${rawClause} contains whitespace splitting a value`);
+    result.push(`Whitespace splits a value in clause ${i}`);
+    return result;
+  }
+
   // TODO: source valid strings from formulaTokenizer.ts or some other shared place instead
-  if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.])+$/)) {
+  if (clause.length === 0 || !clause.match(/^([\^$]?\w(@\w+)?|[#+\-*/<>=:;()[\]{}|&?.!,])+$/)) {
     log(`${clause} did not match validation regex`);
     result.push(`Invalid characters in clause ${i}`);
   }
@@ -151,6 +178,33 @@ export const clauseHasMislocatedAssignmentOperator = (clause: string[]): boolean
 );
 
 /**
+ * Split a formula string into clauses at top-level commas. Commas inside
+ * parentheses (e.g., function-call arguments like max(1d6,5)) do not split.
+ * @example // returns ['a', 'max(1,2)']
+ * splitFormulaClauses('a,max(1,2)')
+ */
+export const splitFormulaClauses = (formula: string): string[] => {
+  const clauses: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const char of formula) {
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+    }
+    if (char === ',' && depth === 0) {
+      clauses.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  clauses.push(current);
+  return clauses;
+};
+
+/**
  * Perform validation for the entire formula (an unconverted string) one clause at a time
  * @returns Empty if valid. Array of issues found.
  */
@@ -158,7 +212,7 @@ export const validateFormula = (formula: string): string[] => {
   if (typeof formula !== 'string') {
     throw new Error('validateFormula() called with an invalid formula (i.e., of a non-string type)');
   }
-  const clauses = formula.split(',');
+  const clauses = splitFormulaClauses(formula);
   const result = clauses.flatMap((clause, i) => validateClause(clause, i + 1));
   if (!enableLogging) {
     return result;

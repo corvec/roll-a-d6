@@ -145,3 +145,7 @@ it('getTargetCollection(ac@Defender) returns Defender', () => {
   expect(getTargetCollection('ac[0]@Defender')).toEqual('Defender');
   expect(getTargetCollection('ac')).toEqual(null);
 });
+
+it('splitTokenList does not split on commas inside parentheses', () => {
+  expect(splitTokenList(['a', ',', '(', '1', ',', '2', ')'])).toEqual([['a'], ['(', '1', ',', '2', ')']]);
+});

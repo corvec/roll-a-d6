@@ -12,9 +12,10 @@ export type RPNTokenList = string[];
 export type MacroMap = Record<string, RPNTokenList>;
 
 /**
- * Log of rolls made, keyed by number of sides, e.g., {6: ['1(d6)','5(d6)']}
+ * Log of rolls made, keyed by number of sides ('F' for fudge dice),
+ * e.g., {6: ['1(d6)','5(d6)'], F: ['-1(dF)']}
  */
-export type RollLog = Record<number, string[]>;
+export type RollLog = Record<string | number, string[]>;
 
 /** Side effects applied during an evaluation, e.g., { sneakAttack: 0 } */
 export type SideEffects = Record<string, ResultEntry>;
@@ -53,16 +54,43 @@ export interface TargetedCollection {
  */
 export type RandomNumberGenerator = () => number;
 
+/** One row of a lookup table. */
+export interface LookupTableEntry {
+  /** Inclusive lower bound of the selector range; null marks the default row */
+  min: number | null;
+  /** Inclusive upper bound; null means unbounded (an 'N+' selector) */
+  max: number | null;
+  /** The literal text result (text tables) */
+  text?: string;
+  /** The tokenized RPN formula to evaluate on selection (formula tables) */
+  formula?: RPNTokenList;
+}
+
+/**
+ * A lookup table, defined with '[1-2: text, ...]' (text results) or
+ * '[[1-2: formula, ...]]' (formula results), and used with call syntax:
+ * tableName(1d6).
+ */
+export interface LookupTable {
+  kind: 'text' | 'formula';
+  entries: LookupTableEntry[];
+}
+
+/** Map from table names to parsed lookup tables. */
+export type TableMap = Record<string, LookupTable>;
+
 /** Metadata tracked while evaluating a set of expressions. */
 export interface EvaluationMetadata {
   /** Available macros that could be referenced */
   macros: MacroMap;
+  /** Available lookup tables, usable with call syntax (e.g., encounterTable(1d6)) */
+  tables: TableMap;
   /** Source of randomness used for new dice rolls */
   rng: RandomNumberGenerator;
   /** Map from number of sides to saved roll results (e.g., {6: ['1(d6)','5(d6)']}) */
   rolls: RollLog;
-  /** Map from number of sides to roll index */
-  rollIndex: Record<number, number>;
+  /** Map from number of sides ('F' for fudge dice) to roll index */
+  rollIndex: Record<string | number, number>;
   /** Saved results of global macro instances */
   savedGlobalValues: Record<string, ResultEntry[]>;
   /** Applied side effects this run */

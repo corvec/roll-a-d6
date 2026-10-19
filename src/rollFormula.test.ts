@@ -241,3 +241,217 @@ it('buildResultRange tested with Animate Objects (another failing case found in 
   ];
   expect(resultRange).toEqual(expectedResultRange);
 });
+
+describe('chained else-if conditionals', () => {
+  it('takes the first branch whose condition is true', () => {
+    expect(d6.rollFormula('v=1,v==1->11;v==2->22;33', {}).result).toEqual([11]);
+    expect(d6.rollFormula('v=2,v==1->11;v==2->22;33', {}).result).toEqual([22]);
+    expect(d6.rollFormula('v=3,v==1->11;v==2->22;33', {}).result).toEqual([33]);
+  });
+
+  it('supports three chained else-ifs', () => {
+    const formula = 'v==1->11;v==2->22;v==3->33;v==4->44;0';
+    expect(d6.rollFormula(formula, { v: '3' }).result).toEqual([33]);
+    expect(d6.rollFormula(formula, { v: '4' }).result).toEqual([44]);
+    expect(d6.rollFormula(formula, { v: '5' }).result).toEqual([0]);
+  });
+
+  it('matches the behavior of explicitly parenthesized chains', () => {
+    [1, 2, 3].forEach(v => {
+      const chained = d6.rollFormula(`v=${v},v==1->11;v==2->22;33`, {});
+      const parenthesized = d6.rollFormula(`v=${v},v==1->11;(v==2->22;33)`, {});
+      expect(chained.result).toEqual(parenthesized.result);
+    });
+  });
+
+  it('does not roll dice in untaken chain branches', () => {
+    const { result, rolls } = d6.rollFormula('v=2,v==1->1d4;v==2->1d6;1d8', {});
+    expect(typeof result[0]).toBe('number');
+    expect(Object.keys(rolls)).toEqual(['6']);
+  });
+});
+
+describe('whitespace in formulas', () => {
+  it('ignores whitespace around operators and values', () => {
+    expect(d6.rollFormula('2 + 3 * 4', {}).result).toEqual([14]);
+    expect(d6.rollFormula('v = 5, v == 5 -> 1; 0', {}).result).toEqual([1]);
+  });
+
+  it('validates formulas with whitespace', () => {
+    expect(d6.validateFormula('1d20 + 5')).toEqual([]);
+  });
+});
+
+describe('exploding dice formulas', () => {
+  it('validates and rolls NdX! notation', () => {
+    expect(d6.validateFormula('2d6!+5')).toEqual([]);
+    const { result } = d6.rollFormula('2d6!+5', {}, {}, { rng: () => 0 });
+    expect(result).toEqual([7]);
+  });
+
+  it('explodes with a deterministic rng', () => {
+    const values = [0.99, 0.1, 0.1]; // d6: 6, 1, 1 -> 1d6! = 7, second 1d6 = 1
+    let i = 0;
+    const { result } = d6.rollFormula('1d6!+1d6', {}, {}, { rng: () => values[i++ % values.length] });
+    expect(result).toEqual([8]);
+  });
+});
+
+describe('fudge dice formulas', () => {
+  it('validates and rolls NdF notation', () => {
+    expect(d6.validateFormula('4dF+2')).toEqual([]);
+    expect(d6.rollFormula('4dF+2', {}, {}, { rng: () => 0 }).result).toEqual([-2]);
+    expect(d6.rollFormula('4dF+2', {}, {}, { rng: () => 0.99 }).result).toEqual([6]);
+  });
+
+  it('rejects exploding fudge dice', () => {
+    expect(d6.validateFormula('4dF!')).toContainEqual(expect.any(String));
+  });
+});
+
+describe('max() and min() functions', () => {
+  it('evaluates max and min of plain values', () => {
+    expect(d6.rollFormula('max(3,7)', {}).result).toEqual([7]);
+    expect(d6.rollFormula('min(3,7)', {}).result).toEqual([3]);
+    expect(d6.rollFormula('max(1,5,3)', {}).result).toEqual([5]);
+  });
+
+  it('accepts whitespace and expressions in arguments', () => {
+    expect(d6.rollFormula('max(2 + 3, 16)', {}).result).toEqual([16]);
+  });
+
+  it('compares a whole roll against a floor, like max(3d6, 16)', () => {
+    expect(d6.rollFormula('max(3d6, 16)', {}, {}, { rng: () => 0 }).result).toEqual([16]);
+    expect(d6.rollFormula('max(3d6, 16)', {}, {}, { rng: () => 0.999 }).result).toEqual([18]);
+  });
+
+  it('spreads a roll into individual dice, like max(...3d6, 5)', () => {
+    const values = [0.1, 0.9, 0.3]; // d6: 1, 6, 2
+    let i = 0;
+    const spread = d6.rollFormula('max(...3d6, 5)', {}, {}, { rng: () => values[i++ % values.length] });
+    expect(spread.result).toEqual([6]);
+    i = 0;
+    const lowSpread = d6.rollFormula('max(...3d6, 5)', {}, {}, { rng: () => 0 });
+    expect(lowSpread.result).toEqual([5]); // all dice rolled 1
+  });
+
+  it('takes the lowest single die with min(...NdX)', () => {
+    const values = [0.9, 0.1]; // d20: 19, 3
+    let i = 0;
+    const { result, rolls } = d6.rollFormula('min(...2d20)', {}, {}, { rng: () => values[i++ % values.length] });
+    expect(result).toEqual([3]);
+    expect(rolls[20]).toHaveLength(2);
+  });
+
+  it('works with macros as arguments', () => {
+    expect(d6.rollFormula('max(a, b)', { a: '4', b: '9' }).result).toEqual([9]);
+  });
+
+  it('works inside conditionals and is skipped on untaken branches', () => {
+    const { result, rolls } = d6.rollFormula('1>2->max(...3d6,5);7', {});
+    expect(result).toEqual([7]);
+    expect(Object.keys(rolls)).toEqual([]);
+  });
+
+  it('validates function-call syntax', () => {
+    expect(d6.validateFormula('max(3d6, 16)')).toEqual([]);
+    expect(d6.validateFormula('max(...3d6, 5)')).toEqual([]);
+    expect(d6.validateFormula('max(,5)')).toContainEqual(expect.any(String));
+    expect(d6.validateFormula('max(5,)')).toContainEqual(expect.any(String));
+  });
+
+  it('throws UnknownVariablesError for unknown functions', () => {
+    expect(() => d6.rollFormula('foo(1,2)', {})).toThrow(d6.ErrorTypes.UnknownVariablesError);
+    expect(() => d6.rollFormula('foo(1,2)', {})).toThrow(/foo/);
+  });
+});
+
+describe('text lookup tables', () => {
+  const macros = { encounterTable: '[1-2: Goblin ambush, 3-5: Wolves, 6: Ancient dragon]' };
+
+  it('returns the matching row text for a roll', () => {
+    expect(d6.rollFormula('encounterTable(1d6)', macros, {}, { rng: () => 0 }).result)
+      .toEqual(['Goblin ambush']);
+    expect(d6.rollFormula('encounterTable(1d6)', macros, {}, { rng: () => 0.999 }).result)
+      .toEqual(['Ancient dragon']);
+  });
+
+  it('accepts expressions as the selector argument', () => {
+    expect(d6.rollFormula('encounterTable(2+1)', macros).result).toEqual(['Wolves']);
+  });
+
+  it('supports default rows', () => {
+    const withDefault = { t: '[20: crit!, default: no crit]' };
+    expect(d6.rollFormula('t(5)', withDefault).result).toEqual(['no crit']);
+    expect(d6.rollFormula('t(20)', withDefault).result).toEqual(['crit!']);
+  });
+
+  it('works through targeted collections', () => {
+    const targetedCollections = {
+      GM: { rolls: { reaction: '[1-3: hostile, 4+: friendly]' }, collections: {} },
+    };
+    expect(d6.rollFormula('reaction@GM(4)', {}, targetedCollections).result).toEqual(['friendly']);
+  });
+
+  it('supports comparing two lookups with ==', () => {
+    const tableMacros = { mood: '[1-3: angry, 4-6: calm]' };
+    expect(d6.rollFormula('mood(1)==mood(2)->10;20', tableMacros).result).toEqual([10]);
+    expect(d6.rollFormula('mood(1)==mood(5)->10;20', tableMacros).result).toEqual([20]);
+  });
+
+  it('throws UnknownVariablesError for a missing table', () => {
+    expect(() => d6.rollFormula('missingTable(1d6)', {})).toThrow(d6.ErrorTypes.UnknownVariablesError);
+  });
+
+  it('throws a ValidationError for a malformed table definition', () => {
+    expect(() => d6.rollFormula('t(1)', { t: '[bad row]' })).toThrow(d6.ErrorTypes.ValidationError);
+  });
+});
+
+describe('formula lookup tables', () => {
+  it('evaluates the selected row as a formula', () => {
+    const macros = { dmgTable: '[[1-3: 1d6, 4-5: 2d6+2, 6: 3d6!]]' };
+    expect(d6.rollFormula('dmgTable(1)', macros, {}, { rng: () => 0 }).result).toEqual([1]);
+    expect(d6.rollFormula('dmgTable(4)', macros, {}, { rng: () => 0 }).result).toEqual([4]);
+  });
+
+  it('only rolls the selected row (lazy evaluation)', () => {
+    const macros = { dmgTable: '[[1-3: 1d4, 4+: 1d8]]' };
+    const { rolls } = d6.rollFormula('dmgTable(2)', macros, {}, { rng: () => 0 });
+    expect(Object.keys(rolls)).toEqual(['4']);
+  });
+
+  it('selects rows with a dice roll and explodes inside rows', () => {
+    const macros = { dmgTable: '[[1-5: 0, 6: 1d6!]]' };
+    const values = [0.99, 0.99, 0.1]; // selector d6: 6 -> row rolls 1d6!: 6, then 1 = 7
+    let i = 0;
+    const { result } = d6.rollFormula('dmgTable(1d6)', macros, {}, { rng: () => values[i++] });
+    expect(result).toEqual([7]);
+  });
+
+  it('resolves macros referenced only from table rows', () => {
+    const macros = {
+      bonus: '4',
+      dmgTable: '[[1-3: 1d6+bonus, default: bonus]]',
+    };
+    expect(d6.rollFormula('dmgTable(6)', macros).result).toEqual([4]);
+  });
+
+  it('flags unknown variables referenced only from table rows', () => {
+    const macros = { dmgTable: '[[1: 1d6+missing, default: 0]]' };
+    expect(() => d6.rollFormula('dmgTable(1)', macros)).toThrow(d6.ErrorTypes.UnknownVariablesError);
+  });
+
+  it('supports tables whose rows call other tables', () => {
+    const macros = {
+      outer: '[[1-3: inner(2), default: 0]]',
+      inner: '[[1-2: 100, default: 5]]',
+    };
+    expect(d6.rollFormula('outer(2)', macros).result).toEqual([100]);
+  });
+
+  it('supports conditionals inside rows', () => {
+    const macros = { t: '[[1: 1>2->5;7, default: 0]]' };
+    expect(d6.rollFormula('t(1)', macros).result).toEqual([7]);
+  });
+});

@@ -45,14 +45,42 @@ export const isNumber = (token: string | number): boolean =>
     && !Number.isNaN(parseInt(String(token), 10));
 
 /**
- * Is the token a roll (e.g., '3d6')?
+ * Is the token a roll (e.g., '3d6'), an exploding roll (e.g., '3d6!'),
+ * or a fudge/Fate roll (e.g., '4dF')?
  */
-export const isRoll = (token: string): boolean => /^\d+d\d+$/.test(token);
+export const isRoll = (token: string): boolean => /^\d+d(\d+!?|F)$/.test(token);
 
 /**
  * Is the token a grouping operator (either '(' or ')')?
  */
 export const isGrouping = (token: string): boolean => ['(', ')'].includes(token);
+
+/**
+ * Is the token a function-call token in RPN form (e.g., 'max:2' = call max with 2 arguments)?
+ * These are produced by the RPN converter from call syntax like max(1d6,5).
+ */
+export const isFunctionCallToken = (token: string): boolean =>
+  /^[a-zA-Z]\w*(@[A-Za-z]\w*)?:\d+$/.test(token);
+
+/**
+ * Get the name and argument count of an RPN function-call token
+ * @example // returns { name: 'max', argCount: 2 }
+ * parseFunctionCallToken('max:2')
+ */
+export const parseFunctionCallToken = (token: string): { name: string; argCount: number } => {
+  const colonIndex = token.lastIndexOf(':');
+  return {
+    name: token.slice(0, colonIndex),
+    argCount: parseInt(token.slice(colonIndex + 1), 10),
+  };
+};
+
+/**
+ * Is the token a spread roll (e.g., '...3d6'), which pushes each die's result separately?
+ * Only valid directly inside function-call arguments; produced by the RPN converter.
+ */
+export const isSpreadRoll = (token: string): boolean =>
+  token.startsWith('...') && isRoll(token.slice(3));
 
 /**
  * Is the token a value - a variable, variable instance, dice roll, number, or '?'.
@@ -64,7 +92,7 @@ export const isValue = (token: string): boolean =>
  * Is the token valid?
  */
 export const isValidToken = (token: string): boolean =>
-  isOperator(token) || isValue(token) || isGrouping(token) || ['=', '?'].includes(token);
+  isOperator(token) || isValue(token) || isGrouping(token) || ['=', '?', ','].includes(token);
 
 
 const targetCollectionRegex = /@[A-Za-z]\w+$/;
@@ -102,14 +130,22 @@ export const stripSuffix = (variableInstance: string): string => variableInstanc
   .replace(/(\[.*]|{.*})$/, '');
 
 /**
- * Split a tokenized list into multiple tokenized lists based on the comma token
+ * Split a tokenized list into multiple tokenized lists based on the comma token.
+ * Commas inside parentheses (e.g., function-call arguments like max(1d6,5)) do
+ * not split the list.
  * @example // returns [['a'],['c']]
  * splitTokenList(['a', ',', 'c'])
  */
 export const splitTokenList = (tokens: string[]): string[][] => {
   const result: string[][] = [[]];
+  let depth = 0;
   for (const token of tokens) {
-    if (token === ',') {
+    if (token === '(') {
+      depth += 1;
+    } else if (token === ')') {
+      depth -= 1;
+    }
+    if (token === ',' && depth === 0) {
       result.push([]);
     } else {
       result[result.length - 1].push(token);
@@ -121,16 +157,18 @@ export const splitTokenList = (tokens: string[]): string[][] => {
 /**
  * Every token MUST match this Regex.
  */
-const tokenRegex = /([\^$]?[A-Za-z]\w*(\[\d+]|{\d+})?(@[A-Za-z]\w*)?|\w+\b|[()]|[:+-]=|\.\.\.|->|#[+*&|]|[+*/,;]|[<>=]{1,2}|[|]{2}|&&|\B-\d+|-|\?)/g;
+const tokenRegex = /([\^$]?[A-Za-z]\w*(\[\d+]|{\d+})?(@[A-Za-z]\w*)?|\d+d\d+!|\w+\b|[()]|[:+-]=|\.\.\.|->|#[+*&|]|[+*/,;]|[<>=]{1,2}|[|]{2}|&&|\B-\d+|-|\?)/g;
 
 /**
  * Convert a formula from a string into an array of tokens.
  * Each token should represent either a value or an operator.
+ * Whitespace is not significant and is removed before matching.
  * @example // returns ['1d20', '+', '5']
- * tokenize('1d20+5')
+ * tokenize('1d20 + 5')
  *
  * @returns Array of tokens, or null if nothing in the formula matched
  */
-export const tokenize = (formula: string): string[] | null => formula.match(tokenRegex);
+export const tokenize = (formula: string): string[] | null =>
+  formula.replace(/\s+/g, '').match(tokenRegex);
 
 export default tokenize;

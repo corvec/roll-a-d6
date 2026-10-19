@@ -2,15 +2,19 @@ import {
   getTargetCollection,
   isConditional,
   isExpansionOperator,
+  isFunctionCallToken,
   isOperator,
   isRoll,
   isSideEffectOperator,
   isSideEffectVariable,
+  isSpreadRoll,
+  parseFunctionCallToken,
   stripPrefix,
   stripSuffix,
   variableTargetsCollection,
 } from './formulaTokenizer.js';
 import { objectMakerReduceHelper, peek } from './helpers.js';
+import { lookUpEntry } from './lookupTables.js';
 import type {
   EvaluationMetadata,
   EvaluationResult,
@@ -19,6 +23,7 @@ import type {
   ResultEntry,
   RollLog,
   RPNTokenList,
+  TableMap,
 } from './types.js';
 
 // TODO: [Tech Debt] Refactor this module to not mutate savedMacroValues or evaluationMetadata
@@ -80,10 +85,16 @@ const evaluate = (token: string, v1: StackValue, v2: StackValue): ResultEntry =>
 
 
 /**
+ * Number of sides on a die: a positive integer, or 'F' for a fudge/Fate die
+ * (which rolls -1, 0, or +1).
+ */
+type DieSides = number | 'F';
+
+/**
  * If `rolls` was provided (and thus, we have a `rollIndex`), then return the next roll.
  * Otherwise, generate the next roll and save it into rolls.
  */
-const rollAD = (sides: number, evaluationMetadata: EvaluationMetadata): number => {
+const rollAD = (sides: DieSides, evaluationMetadata: EvaluationMetadata): number => {
   if (rollIsSaved(sides, evaluationMetadata)) {
     const rollResult = evaluationMetadata.rolls[sides][evaluationMetadata.rollIndex[sides]];
     evaluationMetadata.rollIndex[sides] += 1;
@@ -93,15 +104,17 @@ const rollAD = (sides: number, evaluationMetadata: EvaluationMetadata): number =
   }
 };
 
-const getInitialRollIndex = (sides: number[]): Record<number, number> =>
-  sides.map((side): [string, number] => [`${side}`, 0]).reduce(objectMakerReduceHelper, {});
+const getInitialRollIndex = (sides: string[]): Record<string | number, number> =>
+  sides.map((side): [string, number] => [side, 0]).reduce(objectMakerReduceHelper, {});
 
-const rollIsSaved = (sides: number, evaluationMetadata: EvaluationMetadata): boolean =>
+const rollIsSaved = (sides: DieSides, evaluationMetadata: EvaluationMetadata): boolean =>
   typeof evaluationMetadata.rollIndex[sides] === 'number'
     && evaluationMetadata.rollIndex[sides] < evaluationMetadata.rolls[sides].length;
 
-const addRoll = (sides: number, evaluationMetadata: EvaluationMetadata): number => {
-  const rollResult = Math.floor(sides * evaluationMetadata.rng()) + 1;
+const addRoll = (sides: DieSides, evaluationMetadata: EvaluationMetadata): number => {
+  const rollResult = sides === 'F'
+    ? Math.floor(3 * evaluationMetadata.rng()) - 1
+    : Math.floor(sides * evaluationMetadata.rng()) + 1;
   if (!evaluationMetadata.rolls.hasOwnProperty(sides)) {
     evaluationMetadata.rolls[sides] = [];
   }
@@ -109,10 +122,109 @@ const addRoll = (sides: number, evaluationMetadata: EvaluationMetadata): number 
   return rollResult;
 };
 
+interface ParsedRoll {
+  count: number;
+  sides: DieSides;
+  exploding: boolean;
+}
+
+/**
+ * @example // returns { count: 3, sides: 6, exploding: true }
+ * parseRollToken('3d6!')
+ * @example // returns { count: 4, sides: 'F', exploding: false }
+ * parseRollToken('4dF')
+ */
+const parseRollToken = (token: string): ParsedRoll => {
+  const sidesPart = token.slice(1 + token.indexOf('d'));
+  return {
+    count: parseInt(token.slice(0, token.indexOf('d')), 10) || 1,
+    sides: sidesPart.startsWith('F') ? 'F' : parseInt(sidesPart, 10),
+    exploding: token.endsWith('!'),
+  };
+};
+
+/**
+ * Cap on the number of rolls a single exploding die may make, so that an
+ * absurdly lucky (or seeded) streak still terminates. A d1 never explodes at
+ * all, since it always rolls its maximum.
+ */
+const MAX_EXPLOSION_DEPTH = 100;
+
+/**
+ * Roll a single die. An exploding die that rolls its maximum value is rolled
+ * again, and again for as long as the maximum keeps coming up; all of its
+ * rolls are added together.
+ */
+const rollOneDie = (
+  { sides, exploding }: { sides: DieSides; exploding: boolean },
+  evaluationMetadata: EvaluationMetadata,
+): number => {
+  let rollValue = rollAD(sides, evaluationMetadata);
+  let total = rollValue;
+  if (exploding && typeof sides === 'number' && sides > 1) {
+    let rollsMade = 1;
+    while (rollValue === sides && rollsMade < MAX_EXPLOSION_DEPTH) {
+      rollValue = rollAD(sides, evaluationMetadata);
+      total += rollValue;
+      rollsMade += 1;
+    }
+  }
+  return total;
+};
+
 const rollRoll = (token: string, evaluationMetadata: EvaluationMetadata): number => {
-  const count = parseInt(token.slice(0, token.indexOf('d')), 10) || 1;
-  const sides = parseInt(token.slice(1 + token.indexOf('d')), 10);
-  return [...Array(count).keys()].reduce((accum) => accum + rollAD(sides, evaluationMetadata), 0);
+  const { count, sides, exploding } = parseRollToken(token);
+  return [...Array(count).keys()].reduce(
+    (accum) => accum + rollOneDie({ sides, exploding }, evaluationMetadata), 0,
+  );
+};
+
+/**
+ * Roll each die of a roll token separately (e.g., for the spread '...3d6'),
+ * returning one entry per die. An exploding die's chain still collapses into
+ * that one die's entry.
+ */
+const rollSpread = (token: string, evaluationMetadata: EvaluationMetadata): number[] => {
+  const { count, sides, exploding } = parseRollToken(token);
+  return [...Array(count).keys()].map(() => rollOneDie({ sides, exploding }, evaluationMetadata));
+};
+
+/**
+ * Apply a function-call token (e.g., 'max:3' or 'encounterTable:1') to the
+ * values its arguments left on the stack.
+ */
+const evaluateFunction = (
+  { stack, token, evaluationMetadata }: {
+    stack: StackValue[];
+    token: string;
+    evaluationMetadata: EvaluationMetadata;
+  },
+): StackValue[] => {
+  const { name, argCount } = parseFunctionCallToken(token);
+  if (name === 'max' || name === 'min') {
+    if (stack.length < argCount) {
+      throw new Error(`${name}() called with ${stack.length} value(s) on the stack (needs ${argCount}).`);
+    }
+    const args = stack.slice(-argCount).map(Number);
+    const value = name === 'max' ? Math.max(...args) : Math.min(...args);
+    log(`${name}(${args.join(', ')}) => ${value}`);
+    return [...stack.slice(0, -argCount), value];
+  }
+  const table = evaluationMetadata.tables[name];
+  if (table) {
+    if (argCount !== 1) {
+      throw new Error(`Lookup table "${name}" takes exactly one argument (got ${argCount}).`);
+    }
+    const selector = Number(peek(stack));
+    const entry = lookUpEntry(table, name, selector);
+    // Formula rows are evaluated lazily: only the selected row's formula runs
+    const value = entry.text !== undefined
+      ? entry.text
+      : evaluateExpression(entry.formula as RPNTokenList, evaluationMetadata);
+    log(`${name}(${selector}) => ${value}`);
+    return [...stack.slice(0, -1), value];
+  }
+  throw new Error(`Unknown function or lookup table "${name}". Built-in functions are max() and min().`);
 };
 
 const isBoolean = (token: StackValue): boolean => [true, false, 'true', 'false'].includes(token as boolean | string);
@@ -367,6 +479,10 @@ const evaluateExpression = (expression: RPNTokenList, evaluationMetadata: Evalua
       return evaluateConditional({ stack, token });
     } else if ((typeof top === 'string' && isConditional(top)) || token === '...') {
       return ignoreToken({ stack });
+    } else if (isSpreadRoll(token)) {
+      return [...stack, ...rollSpread(token.slice(3), evaluationMetadata)];
+    } else if (isFunctionCallToken(token)) {
+      return evaluateFunction({ stack, token, evaluationMetadata });
     } else if (isSideEffectVariable(token)) {
       return [...stack, token];
     } else if (isSideEffectOperator(token)) {
@@ -386,23 +502,26 @@ const evaluateExpression = (expression: RPNTokenList, evaluationMetadata: Evalua
  * Calculate the result of tokenized RPN expressions
  * @param p.expressions Expressions to evaluate
  * @param p.macros Macros referenced by these expressions / by other macros
+ * @param p.tables Lookup tables available via call syntax (e.g., encounterTable(1d6))
  * @param p.rolls Saved rolls (by number of sides), in case of reevaluation
  * @param p.rng Source of randomness for new dice rolls; defaults to Math.random.
  *              Inject a seeded generator for deterministic results.
  */
 const evaluateFormula = (
-  { expressions, macros, rolls = {}, rng = Math.random }: {
+  { expressions, macros, tables = {}, rolls = {}, rng = Math.random }: {
     expressions: RPNTokenList[];
     macros: MacroMap;
+    tables?: TableMap;
     rolls?: RollLog;
     rng?: RandomNumberGenerator;
   },
 ): EvaluationResult => {
   const evaluationMetadata: EvaluationMetadata = {
     macros,
+    tables,
     rng,
     rolls,
-    rollIndex: getInitialRollIndex(Object.keys(rolls).map(sides => parseInt(sides, 10))),
+    rollIndex: getInitialRollIndex(Object.keys(rolls)),
     savedGlobalValues: {},
     sideEffects: {},
   };
