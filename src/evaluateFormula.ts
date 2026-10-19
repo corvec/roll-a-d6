@@ -109,10 +109,56 @@ const addRoll = (sides: number, evaluationMetadata: EvaluationMetadata): number 
   return rollResult;
 };
 
+interface ParsedRoll {
+  count: number;
+  sides: number;
+  exploding: boolean;
+}
+
+/**
+ * @example // returns { count: 3, sides: 6, exploding: true }
+ * parseRollToken('3d6!')
+ */
+const parseRollToken = (token: string): ParsedRoll => ({
+  count: parseInt(token.slice(0, token.indexOf('d')), 10) || 1,
+  sides: parseInt(token.slice(1 + token.indexOf('d')), 10),
+  exploding: token.endsWith('!'),
+});
+
+/**
+ * Cap on the number of rolls a single exploding die may make, so that an
+ * absurdly lucky (or seeded) streak still terminates. A d1 never explodes at
+ * all, since it always rolls its maximum.
+ */
+const MAX_EXPLOSION_DEPTH = 100;
+
+/**
+ * Roll a single die. An exploding die that rolls its maximum value is rolled
+ * again, and again for as long as the maximum keeps coming up; all of its
+ * rolls are added together.
+ */
+const rollOneDie = (
+  { sides, exploding }: { sides: number; exploding: boolean },
+  evaluationMetadata: EvaluationMetadata,
+): number => {
+  let rollValue = rollAD(sides, evaluationMetadata);
+  let total = rollValue;
+  if (exploding && sides > 1) {
+    let rollsMade = 1;
+    while (rollValue === sides && rollsMade < MAX_EXPLOSION_DEPTH) {
+      rollValue = rollAD(sides, evaluationMetadata);
+      total += rollValue;
+      rollsMade += 1;
+    }
+  }
+  return total;
+};
+
 const rollRoll = (token: string, evaluationMetadata: EvaluationMetadata): number => {
-  const count = parseInt(token.slice(0, token.indexOf('d')), 10) || 1;
-  const sides = parseInt(token.slice(1 + token.indexOf('d')), 10);
-  return [...Array(count).keys()].reduce((accum) => accum + rollAD(sides, evaluationMetadata), 0);
+  const { count, sides, exploding } = parseRollToken(token);
+  return [...Array(count).keys()].reduce(
+    (accum) => accum + rollOneDie({ sides, exploding }, evaluationMetadata), 0,
+  );
 };
 
 const isBoolean = (token: StackValue): boolean => [true, false, 'true', 'false'].includes(token as boolean | string);

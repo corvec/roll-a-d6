@@ -281,3 +281,18 @@ describe('whitespace in formulas', () => {
     expect(d6.validateFormula('1d20 + 5')).toEqual([]);
   });
 });
+
+describe('exploding dice formulas', () => {
+  it('validates and rolls NdX! notation', () => {
+    expect(d6.validateFormula('2d6!+5')).toEqual([]);
+    const { result } = d6.rollFormula('2d6!+5', {}, {}, { rng: () => 0 });
+    expect(result).toEqual([7]);
+  });
+
+  it('explodes with a deterministic rng', () => {
+    const values = [0.99, 0.1, 0.1]; // d6: 6, 1, 1 -> 1d6! = 7, second 1d6 = 1
+    let i = 0;
+    const { result } = d6.rollFormula('1d6!+1d6', {}, {}, { rng: () => values[i++ % values.length] });
+    expect(result).toEqual([8]);
+  });
+});
